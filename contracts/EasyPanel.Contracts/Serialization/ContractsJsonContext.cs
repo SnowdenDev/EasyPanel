@@ -24,6 +24,7 @@ namespace EasyPanel.Contracts.Serialization;
 [JsonSerializable(typeof(SendConsoleInputCommand))]
 [JsonSerializable(typeof(ComputeExecutableHashCommand))]
 [JsonSerializable(typeof(FileTransferRequest))]
+[JsonSerializable(typeof(FileTransferMetadata))]
 [JsonSerializable(typeof(FileChunk))]
 [JsonSerializable(typeof(FileTransferResult))]
 [JsonSerializable(typeof(InstanceStatusSnapshot[]))]

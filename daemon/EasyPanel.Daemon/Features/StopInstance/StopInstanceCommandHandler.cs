@@ -6,10 +6,20 @@ using Microsoft.Extensions.Logging;
 
 namespace EasyPanel.Daemon.Features.StopInstance;
 
-internal sealed class StopInstanceCommandHandler(LaunchedProcessRegistry registry, IBackendReporter reporter, ILogger<StopInstanceCommandHandler> logger)
+internal sealed class StopInstanceCommandHandler(
+    LaunchedProcessRegistry registry,
+    LaunchInstanceCommandHandler launchInstanceCommandHandler,
+    IBackendReporter reporter,
+    ILogger<StopInstanceCommandHandler> logger)
 {
     public async Task HandleAsync(StopInstanceCommand command, CancellationToken cancellationToken)
     {
+        // A crashed instance sits in a backoff delay, not in the registry, waiting to
+        // auto-restart — cancel that unconditionally, whether or not anything is actually
+        // running right now, or a Stop that lands mid-backoff gets silently overridden by
+        // the pending restart once its delay elapses. See LaunchInstanceCommandHandler.
+        launchInstanceCommandHandler.CancelPendingRestart(command.InstanceId);
+
         // Removing first (before the process has actually exited) is what makes
         // LaunchInstanceCommandHandler's Process.Exited handler treat this as an expected
         // stop rather than a crash — see docs/architecture.md.

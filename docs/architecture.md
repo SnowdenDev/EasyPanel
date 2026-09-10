@@ -265,6 +265,18 @@ the exit-detection mechanism itself.
   dependencies lazily via the injected `IServiceProvider` instead (see
   `ControlHubConnection`'s `LaunchInstanceCommandHandler`/
   `StopInstanceCommandHandler` properties).
+- **SignalR's default 32 KB message size limit silently breaks file chunks**:
+  `HubOptions.MaximumReceiveMessageSize` defaults to 32 KB. A 64 KB file chunk
+  — base64-encoded plus JSON envelope overhead pushes it well past that —
+  gets rejected, but SignalR does not surface this as a catchable exception on
+  the sending side; it just closes the connection, so `SendAsync` calls for
+  chunks made after the drop look like they succeeded (they're fire-and-forget
+  and only check local connection state) while nothing ever arrives on the
+  other end. A small control message (like the file-size metadata sent before
+  the first chunk) stays under the limit and works fine, which makes the
+  failure look chunk-specific and is a deceptive shape to debug. Fixed by
+  raising `MaximumReceiveMessageSize` to 1 MB in `AddSignalR` on the backend —
+  comfortably above anything a 64 KB chunk plus overhead can produce.
 - **Node token hashing must hash the same bytes on both sides**: the raw token
   is generated as bytes and shown to the admin as a hex string
   (`Convert.ToHexString`), but the stored hash is `SHA256` of the **original

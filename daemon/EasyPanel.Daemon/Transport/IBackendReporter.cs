@@ -13,4 +13,6 @@ internal interface IBackendReporter
     Task ReportConsoleOutputLineAsync(Guid instanceId, ConsoleStreamKind streamKind, string text, long sequenceNumber, CancellationToken cancellationToken);
 
     Task ReportInstanceCrashedAsync(Guid instanceId, int exitCode, bool willAutoRestart, DateTimeOffset? nextRestartAttemptUtc, CancellationToken cancellationToken);
+
+    Task ReportExecutableHashComputedAsync(Guid correlationId, bool succeeded, string? sha256Hex, string? failureReason, CancellationToken cancellationToken);
 }

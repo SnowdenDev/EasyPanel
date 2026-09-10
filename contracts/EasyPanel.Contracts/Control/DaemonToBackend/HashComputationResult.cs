@@ -1,7 +1,7 @@
 namespace EasyPanel.Contracts.Control.DaemonToBackend;
 
 public sealed record HashComputationResult(
-    Guid InstanceId,
+    Guid CorrelationId,
     bool Succeeded,
     string? Sha256Hex,
     string? FailureReason

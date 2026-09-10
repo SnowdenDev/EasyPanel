@@ -1,19 +1,17 @@
 using EasyPanel.Backend.Infrastructure.Security;
+using EasyPanel.Contracts.FileTransfer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
 namespace EasyPanel.Backend.Infrastructure;
 
 /// <summary>
-/// Skeleton for now — a second, independent outbound connection from the daemon,
-/// dedicated to chunked file transfer so a large transfer can never head-of-line-block
-/// console/command traffic on DaemonControlHub. The chunk-relay methods
-/// (SendFileChunk/ReceiveFileChunk and the REST endpoints that bridge them to browser
-/// HTTP streams) land in Phase 2, alongside the daemon's file transfer feature — see
-/// docs/architecture.md.
+/// A second, independent outbound connection from the daemon, dedicated to chunked file
+/// transfer so a large transfer can never head-of-line-block console/command traffic on
+/// DaemonControlHub. See docs/architecture.md's file transfer section.
 /// </summary>
 [Authorize(AuthenticationSchemes = NodeTokenAuthenticationDefaults.SchemeName)]
-public sealed class FileTransferHub : Hub
+public sealed class FileTransferHub(FileTransferCoordinator coordinator) : Hub
 {
     public override async Task OnConnectedAsync()
     {
@@ -21,4 +19,13 @@ public sealed class FileTransferHub : Hub
         await Groups.AddToGroupAsync(Context.ConnectionId, HubGroupNames.NodeGroup(nodeId));
         await base.OnConnectedAsync();
     }
+
+    public void ReportFileTransferMetadata(FileTransferMetadata metadata) =>
+        coordinator.PushMetadata(metadata.TransferId, metadata.TotalSizeBytes);
+
+    public void SendFileChunk(FileChunk chunk) =>
+        coordinator.PushChunk(chunk.TransferId, chunk.Bytes, chunk.IsFinal);
+
+    public void ReportFileTransferResult(FileTransferResult result) =>
+        coordinator.PushResult(result.TransferId, result.Succeeded, result.FailureReason);
 }

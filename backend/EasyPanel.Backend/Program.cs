@@ -2,11 +2,15 @@ using System.Text;
 using System.Text.Json.Serialization;
 using EasyPanel.Backend.Features.AuditLog.ListAuditEntries;
 using EasyPanel.Backend.Features.Auth.Login;
+using EasyPanel.Backend.Features.FileManager.DownloadFile;
+using EasyPanel.Backend.Features.FileManager.UploadFile;
 using EasyPanel.Backend.Features.Instances.CreateInstance;
 using EasyPanel.Backend.Features.Instances.GetInstanceStatus;
 using EasyPanel.Backend.Features.Instances.ListInstances;
+using EasyPanel.Backend.Features.Instances.RestartInstance;
 using EasyPanel.Backend.Features.Instances.StartInstance;
 using EasyPanel.Backend.Features.Instances.StopInstance;
+using EasyPanel.Backend.Features.Nodes.ComputeExecutableHash;
 using EasyPanel.Backend.Features.Nodes.ListNodes;
 using EasyPanel.Backend.Features.Nodes.RegisterNode;
 using EasyPanel.Backend.Features.Staff.AssignServerPermissions;
@@ -57,11 +61,20 @@ builder.Services
     .AddScheme<NodeTokenAuthenticationOptions, NodeTokenAuthenticationHandler>(NodeTokenAuthenticationDefaults.SchemeName, _ => { });
 
 builder.Services.AddAuthorization();
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options =>
+{
+    // Default is 32 KB — a 64 KB file chunk, base64-encoded plus JSON envelope overhead,
+    // comfortably exceeds that. SignalR doesn't throw when this is hit; it just closes the
+    // connection, so an undersized limit here shows up as file chunks silently never
+    // arriving rather than as any visible error. See docs/architecture.md.
+    options.MaximumReceiveMessageSize = 1024 * 1024;
+});
 
 builder.Services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
 builder.Services.AddSingleton<IJwtTokenIssuer, JwtTokenIssuer>();
 builder.Services.AddSingleton<INodeConnectionTracker, NodeConnectionTracker>();
+builder.Services.AddSingleton<FileTransferCoordinator>();
+builder.Services.AddSingleton<PendingHashComputationTracker>();
 builder.Services.AddScoped<IServerPermissionChecker, ServerPermissionChecker>();
 
 builder.Services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
@@ -72,11 +85,15 @@ builder.Services.AddScoped<ListNodesHandler>();
 builder.Services.AddScoped<CreateInstanceHandler>();
 builder.Services.AddScoped<StartInstanceHandler>();
 builder.Services.AddScoped<StopInstanceHandler>();
+builder.Services.AddScoped<RestartInstanceHandler>();
 builder.Services.AddScoped<GetInstanceStatusHandler>();
 builder.Services.AddScoped<ListInstancesHandler>();
 builder.Services.AddScoped<AssignServerPermissionsHandler>();
 builder.Services.AddScoped<ListAuditEntriesHandler>();
 builder.Services.AddScoped<CreateUserHandler>();
+builder.Services.AddScoped<DownloadFileHandler>();
+builder.Services.AddScoped<UploadFileHandler>();
+builder.Services.AddScoped<ComputeExecutableHashHandler>();
 
 var app = builder.Build();
 
@@ -99,11 +116,15 @@ app.MapListNodesEndpoint();
 app.MapCreateInstanceEndpoint();
 app.MapStartInstanceEndpoint();
 app.MapStopInstanceEndpoint();
+app.MapRestartInstanceEndpoint();
 app.MapGetInstanceStatusEndpoint();
 app.MapListInstancesEndpoint();
 app.MapAssignServerPermissionsEndpoint();
 app.MapListAuditEntriesEndpoint();
 app.MapCreateUserEndpoint();
+app.MapDownloadFileEndpoint();
+app.MapUploadFileEndpoint();
+app.MapComputeExecutableHashEndpoint();
 
 app.MapHub<DaemonControlHub>("/hubs/daemon-control");
 app.MapHub<DashboardHub>("/hubs/dashboard");

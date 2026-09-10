@@ -2,6 +2,7 @@ using EasyPanel.Contracts.Control.BackendToDaemon;
 using EasyPanel.Contracts.Control.DaemonToBackend;
 using EasyPanel.Contracts.Enums;
 using EasyPanel.Contracts.Serialization;
+using EasyPanel.Daemon.Features.ComputeExecutableHash;
 using EasyPanel.Daemon.Features.ConsoleStreaming;
 using EasyPanel.Daemon.Features.LaunchInstance;
 using EasyPanel.Daemon.Features.StopInstance;
@@ -54,6 +55,7 @@ internal sealed class ControlHubConnection(
     // singletons and this is just a dictionary lookup on an already-built instance.
     private LaunchInstanceCommandHandler LaunchInstanceCommandHandler => serviceProvider.GetRequiredService<LaunchInstanceCommandHandler>();
     private StopInstanceCommandHandler StopInstanceCommandHandler => serviceProvider.GetRequiredService<StopInstanceCommandHandler>();
+    private ComputeExecutableHashCommandHandler ComputeExecutableHashCommandHandler => serviceProvider.GetRequiredService<ComputeExecutableHashCommandHandler>();
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -98,6 +100,7 @@ internal sealed class ControlHubConnection(
         connection.On<Guid>("KillInstance", instanceId =>
             StopInstanceCommandHandler.HandleAsync(new StopInstanceCommand(instanceId, GracePeriodSeconds: 0), CancellationToken.None));
         connection.On<SendConsoleInputCommand>("SendConsoleInput", SendConsoleInputAsync);
+        connection.On<ComputeExecutableHashCommand>("ComputeExecutableHash", command => ComputeExecutableHashCommandHandler.HandleAsync(command, CancellationToken.None));
 
         connection.On<string>("ForceDisconnect", reason =>
         {
@@ -189,6 +192,9 @@ internal sealed class ControlHubConnection(
 
     public Task ReportInstanceCrashedAsync(Guid instanceId, int exitCode, bool willAutoRestart, DateTimeOffset? nextRestartAttemptUtc, CancellationToken cancellationToken) =>
         InvokeIfConnectedAsync("ReportInstanceCrashed", cancellationToken, new InstanceCrashed(instanceId, exitCode, DateTimeOffset.UtcNow, willAutoRestart, nextRestartAttemptUtc));
+
+    public Task ReportExecutableHashComputedAsync(Guid correlationId, bool succeeded, string? sha256Hex, string? failureReason, CancellationToken cancellationToken) =>
+        InvokeIfConnectedAsync("ReportExecutableHashComputed", cancellationToken, new HashComputationResult(correlationId, succeeded, sha256Hex, failureReason));
 
     private async Task InvokeIfConnectedAsync(string methodName, CancellationToken cancellationToken, object argument)
     {

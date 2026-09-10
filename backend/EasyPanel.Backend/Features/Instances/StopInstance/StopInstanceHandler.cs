@@ -11,7 +11,7 @@ public sealed class StopInstanceHandler(AppDbContext dbContext, IHubContext<Daem
 {
     private const int DefaultGracePeriodSeconds = 30;
 
-    public async Task<StopInstanceResult> HandleAsync(Guid instanceId, Guid actorUserId, CancellationToken cancellationToken)
+    public async Task<StopInstanceResult> HandleAsync(Guid instanceId, Guid actorUserId, bool force, CancellationToken cancellationToken)
     {
         var instance = await dbContext.Instances
             .Include(candidate => candidate.Node)
@@ -27,9 +27,20 @@ public sealed class StopInstanceHandler(AppDbContext dbContext, IHubContext<Daem
             return new StopInstanceResult(false, "Node is offline — action was not sent.");
         }
 
-        var command = new StopInstanceCommand(instance.Id, DefaultGracePeriodSeconds);
+        var nodeGroup = HubGroupNames.NodeGroup(instance.NodeId);
 
-        await daemonControlHub.Clients.Group(HubGroupNames.NodeGroup(instance.NodeId)).SendAsync("StopInstance", command, cancellationToken);
+        if (force)
+        {
+            // KillInstance bypasses the grace period entirely — same daemon-side effect as
+            // StopInstance with GracePeriodSeconds=0, but as its own named hub method so the
+            // protocol documents the two as distinct actions (see docs/architecture.md).
+            await daemonControlHub.Clients.Group(nodeGroup).SendAsync("KillInstance", instance.Id, cancellationToken);
+        }
+        else
+        {
+            var command = new StopInstanceCommand(instance.Id, DefaultGracePeriodSeconds);
+            await daemonControlHub.Clients.Group(nodeGroup).SendAsync("StopInstance", command, cancellationToken);
+        }
 
         instance.Status = InstanceStatus.Stopping;
         instance.UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -40,7 +51,7 @@ public sealed class StopInstanceHandler(AppDbContext dbContext, IHubContext<Daem
             ActorUserId = actorUserId,
             InstanceId = instance.Id,
             NodeId = instance.NodeId,
-            Action = "InstanceStopRequested",
+            Action = force ? "InstanceKillRequested" : "InstanceStopRequested",
             CreatedAtUtc = DateTimeOffset.UtcNow,
         });
 

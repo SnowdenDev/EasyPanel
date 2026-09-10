@@ -1,3 +1,5 @@
+using EasyPanel.Daemon.Features.ComputeExecutableHash;
+using EasyPanel.Daemon.Features.FileTransfer;
 using EasyPanel.Daemon.Features.LaunchInstance;
 using EasyPanel.Daemon.Features.StopInstance;
 using EasyPanel.Daemon.Infrastructure;
@@ -12,6 +14,12 @@ builder.Services.Configure<NodeIdentityOptions>(builder.Configuration.GetSection
 builder.Services.AddSingleton<LaunchedProcessRegistry>();
 builder.Services.AddSingleton<LaunchInstanceCommandHandler>();
 builder.Services.AddSingleton<StopInstanceCommandHandler>();
+builder.Services.AddSingleton<ComputeExecutableHashCommandHandler>();
+
+// MVP default, not yet admin-configurable — 20 MB/s per node, shared across all of that
+// node's simultaneous transfers (see docs/architecture.md's file transfer section).
+builder.Services.AddSingleton(_ => new TokenBucketThrottle(bytesPerSecond: 20 * 1024 * 1024));
+builder.Services.AddSingleton<FileTransferCommandHandler>();
 
 // One ControlHubConnection instance plays both roles — the hosted service that owns the
 // connection lifecycle, and the IBackendReporter every feature reports through — so both
@@ -26,6 +34,10 @@ builder.Services.AddSingleton<StopInstanceCommandHandler>();
 builder.Services.AddSingleton<ControlHubConnection>();
 builder.Services.AddSingleton<IBackendReporter>(services => services.GetRequiredService<ControlHubConnection>());
 builder.Services.AddSingleton<IHostedService>(services => services.GetRequiredService<ControlHubConnection>());
+
+// Same dual-role singleton pattern as ControlHubConnection, same reason.
+builder.Services.AddSingleton<FileTransferHubConnection>();
+builder.Services.AddSingleton<IHostedService>(services => services.GetRequiredService<FileTransferHubConnection>());
 
 var host = builder.Build();
 await host.RunAsync();

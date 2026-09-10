@@ -18,11 +18,27 @@ internal sealed class LaunchInstanceCommandHandler(
 {
     private readonly ConcurrentDictionary<Guid, int> _restartAttempts = new();
 
+    // A crashed process is removed from LaunchedProcessRegistry immediately, before the
+    // backoff delay begins — so a Stop arriving during that delay window finds nothing
+    // there to cancel, and without this, the scheduled restart fires anyway once the delay
+    // elapses, relaunching an instance the admin just explicitly stopped. This dictionary
+    // is what StopInstanceCommandHandler.CancelPendingRestart actually cancels.
+    private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _pendingRestarts = new();
+
     /// <summary>The entry point for a real "start this instance" request from the backend.</summary>
     public Task HandleAsync(LaunchInstanceCommand command, CancellationToken cancellationToken)
     {
         _restartAttempts[command.InstanceId] = 0;
         return LaunchAsync(command, cancellationToken);
+    }
+
+    /// <summary>Called by StopInstanceCommandHandler — cancels a restart that's currently waiting out its backoff delay, if any.</summary>
+    public void CancelPendingRestart(Guid instanceId)
+    {
+        if (_pendingRestarts.TryRemove(instanceId, out var cancellationSource))
+        {
+            cancellationSource.Cancel();
+        }
     }
 
     private async Task LaunchAsync(LaunchInstanceCommand command, CancellationToken cancellationToken)
@@ -127,9 +143,25 @@ internal sealed class LaunchInstanceCommandHandler(
 
         _ = reporter.ReportInstanceCrashedAsync(instanceId, exitCode, willAutoRestart: true, nextRestartAttemptUtc, CancellationToken.None);
 
+        var cancellationSource = new CancellationTokenSource();
+        _pendingRestarts[instanceId] = cancellationSource;
+
         _ = Task.Run(async () =>
         {
-            await Task.Delay(delay);
+            try
+            {
+                await Task.Delay(delay, cancellationSource.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                logger.LogInformation("Scheduled restart for {InstanceId} was cancelled — it was stopped before the backoff delay elapsed.", instanceId);
+                return;
+            }
+            finally
+            {
+                _pendingRestarts.TryRemove(instanceId, out _);
+            }
+
             await LaunchAsync(launchedProcess.Command, CancellationToken.None);
         });
     }

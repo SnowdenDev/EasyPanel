@@ -15,7 +15,11 @@ namespace EasyPanel.Backend.Infrastructure;
 /// daemon-only methods.
 /// </summary>
 [Authorize(AuthenticationSchemes = NodeTokenAuthenticationDefaults.SchemeName)]
-public sealed class DaemonControlHub(AppDbContext dbContext, INodeConnectionTracker connectionTracker, IHubContext<DashboardHub> dashboardHub) : Hub
+public sealed class DaemonControlHub(
+    AppDbContext dbContext,
+    INodeConnectionTracker connectionTracker,
+    IHubContext<DashboardHub> dashboardHub,
+    PendingHashComputationTracker hashComputationTracker) : Hub
 {
     public override async Task OnConnectedAsync()
     {
@@ -147,4 +151,6 @@ public sealed class DaemonControlHub(AppDbContext dbContext, INodeConnectionTrac
 
         await dbContext.SaveChangesAsync();
     }
+
+    public void ReportExecutableHashComputed(HashComputationResult result) => hashComputationTracker.Complete(result);
 }

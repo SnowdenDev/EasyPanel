@@ -12,6 +12,8 @@
   </Folder>
   <Folder Name="/daemon/EasyPanel.Daemon.Tests/" />
   <Folder Name="/daemon/EasyPanel.Daemon.Tests/TestFixtures/">
+    <Project Path="daemon/EasyPanel.Daemon.Tests/TestFixtures/BusyTestServer/BusyTestServer.csproj" />
+    <Project Path="daemon/EasyPanel.Daemon.Tests/TestFixtures/CrashTestServer/CrashTestServer.csproj" />
     <Project Path="daemon/EasyPanel.Daemon.Tests/TestFixtures/EchoTestServer/EchoTestServer.csproj" />
   </Folder>
 </Solution>
