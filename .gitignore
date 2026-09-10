@@ -1,0 +1,24 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dashboard/**/dist/
+
+# Env & secrets
+.env
+.env.local
+*.pfx
+appsettings.*.local.json
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
