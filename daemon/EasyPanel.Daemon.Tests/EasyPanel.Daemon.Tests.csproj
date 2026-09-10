@@ -22,4 +22,16 @@
     <ProjectReference Include="..\EasyPanel.Daemon\EasyPanel.Daemon.csproj" />
   </ItemGroup>
 
+  <!--
+    TestFixtures/EchoTestServer is its own separate project (a real throwaway executable
+    used for end-to-end daemon verification, not a mock) — exclude its files from this
+    project's default glob, or its generated obj/ assembly attributes collide with ours.
+  -->
+  <ItemGroup>
+    <Compile Remove="TestFixtures/**/*.cs" />
+    <None Remove="TestFixtures/**/*" />
+    <Content Remove="TestFixtures/**/*" />
+    <EmbeddedResource Remove="TestFixtures/**/*" />
+  </ItemGroup>
+
 </Project>

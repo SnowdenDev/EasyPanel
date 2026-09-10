@@ -10,4 +10,8 @@
     <Project Path="daemon/EasyPanel.Daemon.Tests/EasyPanel.Daemon.Tests.csproj" />
     <Project Path="daemon/EasyPanel.Daemon/EasyPanel.Daemon.csproj" />
   </Folder>
+  <Folder Name="/daemon/EasyPanel.Daemon.Tests/" />
+  <Folder Name="/daemon/EasyPanel.Daemon.Tests/TestFixtures/">
+    <Project Path="daemon/EasyPanel.Daemon.Tests/TestFixtures/EchoTestServer/EchoTestServer.csproj" />
+  </Folder>
 </Solution>

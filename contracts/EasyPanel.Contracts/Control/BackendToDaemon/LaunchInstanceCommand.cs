@@ -8,5 +8,6 @@ public sealed record LaunchInstanceCommand(
     string? LaunchArguments,
     IReadOnlyDictionary<string, string> EnvironmentVariables,
     int? CpuLimitPercent,
-    int? MemoryLimitMegabytes
+    int? MemoryLimitMegabytes,
+    bool AutoRestartEnabled
 );

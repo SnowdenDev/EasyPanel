@@ -40,7 +40,8 @@ public sealed class StartInstanceHandler(AppDbContext dbContext, IHubContext<Dae
             instance.LaunchArguments,
             environmentVariables,
             instance.CpuLimitPercent,
-            instance.MemoryLimitMegabytes);
+            instance.MemoryLimitMegabytes,
+            instance.AutoRestartEnabled);
 
         await daemonControlHub.Clients.Group(HubGroupNames.NodeGroup(instance.NodeId)).SendAsync("LaunchInstance", command, cancellationToken);
 

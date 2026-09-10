@@ -43,7 +43,20 @@ public sealed class NodeTokenAuthenticationHandler(
             return AuthenticateResult.Fail("Unknown node.");
         }
 
-        var presentedTokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawToken)));
+        // RegisterNodeHandler hashes the token's raw random bytes, not the UTF8 bytes of
+        // its hex-string representation — hash the same way here, or every token would
+        // fail to authenticate against its own freshly-issued hash.
+        byte[] presentedTokenBytes;
+        try
+        {
+            presentedTokenBytes = Convert.FromHexString(rawToken);
+        }
+        catch (FormatException)
+        {
+            return AuthenticateResult.Fail("Malformed node token.");
+        }
+
+        var presentedTokenHash = Convert.ToHexString(SHA256.HashData(presentedTokenBytes));
         var hashesMatch = CryptographicOperations.FixedTimeEquals(
             Encoding.UTF8.GetBytes(presentedTokenHash),
             Encoding.UTF8.GetBytes(node.NodeTokenHash));

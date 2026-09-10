@@ -223,7 +223,11 @@ a `SafeHandle` subclass for deterministic cleanup, not a raw `IntPtr`/`nint`.
 
 Required csproj settings: `<PublishAot>true</PublishAot>`,
 `<RuntimeIdentifier>win-x64</RuntimeIdentifier>` (AOT requires a concrete RID),
-`<SelfContained>true</SelfContained>`.
+`<SelfContained>true</SelfContained>`, and — despite only using blittable
+structs — `<AllowUnsafeBlocks>true</AllowUnsafeBlocks>`: the LibraryImport
+source generator itself emits unsafe code for `SetLastError`-marked P/Invokes
+regardless of how clean the managed side is, and the build fails
+(`SYSLIB1062`) without that flag.
 
 Limits set at job creation: `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` (the core
 "no orphans" guarantee), `JOB_OBJECT_LIMIT_PROCESS_MEMORY` for the RAM cap,
@@ -233,6 +237,40 @@ Crash/exit detection uses `Process.Exited`/`Process.ExitCode` on the already-
 launched `Process` object (works fine under AOT, no reflection involved) — the
 Job Object exists to guarantee no orphans and enforce resource limits, not as
 the exit-detection mechanism itself.
+
+## Gotchas hit building the daemon (Phase 2) — read before adding new wire messages
+
+- **JSON under Native AOT**: `PublishAot=true` disables reflection-based
+  `System.Text.Json` serialization — not only for a real `dotnet publish`, but
+  for `dotnet build`/`dotnet run` too, so dev-time behavior matches what a
+  published binary would actually do. Every DTO that crosses the daemon↔backend
+  SignalR wire must be registered in
+  `contracts/EasyPanel.Contracts/Serialization/ContractsJsonContext.cs`
+  (`[JsonSerializable(typeof(...))]`), or sending/receiving it throws
+  `Reflection-based serialization has been disabled...` at runtime — it still
+  compiles fine, so this only surfaces when you actually exercise the new
+  message. `ControlHubConnection` wires this context into the daemon's
+  `HubConnectionBuilder` via `AddJsonProtocol`.
+- **DI cycles through `IBackendReporter`**: don't add a constructor parameter
+  of type `LaunchInstanceCommandHandler`/`StopInstanceCommandHandler` (or any
+  other type that itself depends on `IBackendReporter`) to
+  `ControlHubConnection`. `IBackendReporter` is registered to resolve back to
+  `ControlHubConnection` itself — a direct constructor dependency on something
+  that depends on `IBackendReporter` makes a real cycle
+  (`ControlHubConnection` → X → `IBackendReporter` → `ControlHubConnection`),
+  and the DI container **deadlocks instead of throwing**, because the cycle
+  runs through an opaque factory delegate its call-site cycle detector can't
+  see through — the process just hangs forever with no exception, no log line,
+  and no network activity, which is a nasty thing to debug blind. Resolve such
+  dependencies lazily via the injected `IServiceProvider` instead (see
+  `ControlHubConnection`'s `LaunchInstanceCommandHandler`/
+  `StopInstanceCommandHandler` properties).
+- **Node token hashing must hash the same bytes on both sides**: the raw token
+  is generated as bytes and shown to the admin as a hex string
+  (`Convert.ToHexString`), but the stored hash is `SHA256` of the **original
+  bytes**, not of the UTF8 text of the hex string. `NodeTokenAuthenticationHandler`
+  must `Convert.FromHexString` the presented token before hashing it, or every
+  token fails to authenticate against its own freshly-issued hash.
 
 ## MVP build order — one phase per project
 
