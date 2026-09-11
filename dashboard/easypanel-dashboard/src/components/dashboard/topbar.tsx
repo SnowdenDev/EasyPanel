@@ -1,5 +1,7 @@
 import { LogOut } from "lucide-react";
 import { logoutAction } from "@/lib/actions/auth";
+import { ThemeToggle } from "@/components/dashboard/theme-toggle";
+import { AccentPicker } from "@/components/dashboard/accent-picker";
 import type { SessionUser } from "@/lib/types";
 
 export function Topbar({
@@ -23,6 +25,11 @@ export function Topbar({
             {allSystemsNormal ? "All systems normal" : "Attention needed"}
           </span>
         </div>
+        <div className="flex items-center gap-0.5">
+          <AccentPicker />
+          <ThemeToggle />
+        </div>
+        <div className="w-px h-4.5 bg-border" />
         <div
           title={user.email}
           className="w-7 h-7 rounded-full bg-primary/25 flex items-center justify-center text-[11.5px] font-semibold text-primary shrink-0"

@@ -53,21 +53,62 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* EasyPanel is a dark-mode-first operational panel — there is no light theme toggle. These
- * tokens mirror the approved design mockup's palette exactly (see the published Artifact
- * referenced in project notes): violet brand accent reserved for nav/brand identity, solid
- * semantic colors (success/warning/error) reserved for power-action buttons — see
+/* EasyPanel supports both light and dark mode (toggled via next-themes, see
+ * theme-provider.tsx) plus a user-selectable brand accent (see accent-picker.tsx / lib/accent.ts).
+ * Non-brand tokens (background/card/border/semantic colors) live here, split between :root
+ * (light) and .dark (dark). Brand-dependent tokens (primary/ring/sidebar-primary/chart-1) are
+ * NOT set here — they come from the `[data-accent]` blocks below, which is what makes the
+ * accent picker able to swap them independently of light/dark mode. "blue" is the default
+ * accent and matches the falcon logo's cyan-to-blue gradient. Semantic colors (success/warning/
+ * destructive) are solid-fill for power-action buttons regardless of theme or accent — see
  * feedback-no-outline-buttons in project memory: every button here is solid-fill, never
  * outline/border+tint. */
 :root {
+  --background: oklch(0.99 0.002 260);
+  --foreground: oklch(0.2 0.01 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.01 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.01 260);
+  --primary-foreground: oklch(0.99 0.005 260);
+  --secondary: oklch(0.955 0.004 260);
+  --secondary-foreground: oklch(0.25 0.01 260);
+  --muted: oklch(0.96 0.004 260);
+  --muted-foreground: oklch(0.48 0.008 260);
+  --accent: oklch(0.955 0.004 260);
+  --accent-foreground: oklch(0.25 0.01 260);
+  --destructive: oklch(0.58 0.21 25);
+  --destructive-foreground: oklch(1 0 0);
+  --success: oklch(0.55 0.14 148);
+  --success-foreground: oklch(1 0 0);
+  --warning: oklch(0.62 0.16 75);
+  --warning-foreground: oklch(1 0 0);
+  --border: oklch(0.9 0.005 260);
+  --input: oklch(0.9 0.005 260);
+  /* Chart palette: brand color (chart-1, from the accent block below) plus four
+   * hand-picked hues spaced around the wheel (cyan, amber, rose, emerald) so multi-series
+   * charts stay readable at a glance instead of falling back to a grayscale ramp. */
+  --chart-2: oklch(0.62 0.13 205);
+  --chart-3: oklch(0.7 0.15 80);
+  --chart-4: oklch(0.6 0.19 15);
+  --chart-5: oklch(0.6 0.14 155);
+  --radius: 0.5rem;
+  --sidebar: oklch(0.97 0.004 260);
+  --sidebar-foreground: oklch(0.25 0.01 260);
+  --sidebar-primary-foreground: oklch(0.99 0.005 260);
+  --sidebar-accent: oklch(0.93 0.006 260);
+  --sidebar-accent-foreground: oklch(0.22 0.01 260);
+  --sidebar-border: oklch(0.89 0.006 260);
+}
+
+.dark {
   --background: oklch(0.155 0.004 260);
   --foreground: oklch(0.95 0.002 260);
   --card: oklch(0.17 0.004 260);
   --card-foreground: oklch(0.95 0.002 260);
   --popover: oklch(0.17 0.004 260);
   --popover-foreground: oklch(0.95 0.002 260);
-  --primary: oklch(0.62 0.19 288);
-  --primary-foreground: oklch(0.99 0.005 288);
+  --primary-foreground: oklch(0.99 0.005 260);
   --secondary: oklch(0.24 0.006 260);
   --secondary-foreground: oklch(0.9 0.002 260);
   --muted: oklch(0.2 0.006 260);
@@ -82,32 +123,98 @@
   --warning-foreground: oklch(0.14 0.006 260);
   --border: oklch(0.25 0.006 260);
   --input: oklch(0.25 0.006 260);
-  --ring: oklch(0.62 0.19 288);
-  /* Chart palette: brand violet (chart-1) plus four hand-picked hues spaced around the
-   * wheel (cyan, amber, rose, emerald) so multi-series charts stay readable at a glance
-   * instead of falling back to shadcn's default grayscale ramp. */
-  --chart-1: oklch(0.62 0.19 288);
   --chart-2: oklch(0.7 0.14 205);
   --chart-3: oklch(0.78 0.15 80);
   --chart-4: oklch(0.68 0.19 15);
   --chart-5: oklch(0.72 0.16 155);
-  --radius: 0.5rem;
   --sidebar: oklch(0.14 0.004 260);
   --sidebar-foreground: oklch(0.94 0.002 260);
-  --sidebar-primary: oklch(0.62 0.19 288);
-  --sidebar-primary-foreground: oklch(0.99 0.005 288);
+  --sidebar-primary-foreground: oklch(0.99 0.005 260);
   --sidebar-accent: oklch(0.205 0.006 260);
   --sidebar-accent-foreground: oklch(0.96 0.004 260);
   --sidebar-border: oklch(0.25 0.006 260);
+}
+
+/* Accent presets — swap brand-dependent tokens independently of light/dark mode.
+ * "blue" (the default, set on <html data-accent="blue"> in layout.tsx) matches the logo. */
+[data-accent="blue"] {
+  --primary: oklch(0.58 0.2 231);
+  --ring: oklch(0.58 0.2 231);
+  --sidebar-primary: oklch(0.58 0.2 231);
+  --sidebar-ring: oklch(0.58 0.2 231);
+  --chart-1: oklch(0.58 0.2 231);
+}
+.dark[data-accent="blue"] {
+  --primary: oklch(0.65 0.19 231);
+  --ring: oklch(0.65 0.19 231);
+  --sidebar-primary: oklch(0.65 0.19 231);
+  --sidebar-ring: oklch(0.65 0.19 231);
+  --chart-1: oklch(0.65 0.19 231);
+}
+
+[data-accent="violet"] {
+  --primary: oklch(0.55 0.2 288);
+  --ring: oklch(0.55 0.2 288);
+  --sidebar-primary: oklch(0.55 0.2 288);
+  --sidebar-ring: oklch(0.55 0.2 288);
+  --chart-1: oklch(0.55 0.2 288);
+}
+.dark[data-accent="violet"] {
+  --primary: oklch(0.62 0.19 288);
+  --ring: oklch(0.62 0.19 288);
+  --sidebar-primary: oklch(0.62 0.19 288);
   --sidebar-ring: oklch(0.62 0.19 288);
+  --chart-1: oklch(0.62 0.19 288);
+}
+
+[data-accent="emerald"] {
+  --primary: oklch(0.52 0.15 155);
+  --ring: oklch(0.52 0.15 155);
+  --sidebar-primary: oklch(0.52 0.15 155);
+  --sidebar-ring: oklch(0.52 0.15 155);
+  --chart-1: oklch(0.52 0.15 155);
+}
+.dark[data-accent="emerald"] {
+  --primary: oklch(0.68 0.16 155);
+  --ring: oklch(0.68 0.16 155);
+  --sidebar-primary: oklch(0.68 0.16 155);
+  --sidebar-ring: oklch(0.68 0.16 155);
+  --chart-1: oklch(0.68 0.16 155);
+}
+
+[data-accent="amber"] {
+  --primary: oklch(0.58 0.16 60);
+  --ring: oklch(0.58 0.16 60);
+  --sidebar-primary: oklch(0.58 0.16 60);
+  --sidebar-ring: oklch(0.58 0.16 60);
+  --chart-1: oklch(0.58 0.16 60);
+}
+.dark[data-accent="amber"] {
+  --primary: oklch(0.74 0.15 70);
+  --ring: oklch(0.74 0.15 70);
+  --sidebar-primary: oklch(0.74 0.15 70);
+  --sidebar-ring: oklch(0.74 0.15 70);
+  --chart-1: oklch(0.74 0.15 70);
+}
+
+[data-accent="rose"] {
+  --primary: oklch(0.58 0.21 14);
+  --ring: oklch(0.58 0.21 14);
+  --sidebar-primary: oklch(0.58 0.21 14);
+  --sidebar-ring: oklch(0.58 0.21 14);
+  --chart-1: oklch(0.58 0.21 14);
+}
+.dark[data-accent="rose"] {
+  --primary: oklch(0.66 0.2 14);
+  --ring: oklch(0.66 0.2 14);
+  --sidebar-primary: oklch(0.66 0.2 14);
+  --sidebar-ring: oklch(0.66 0.2 14);
+  --chart-1: oklch(0.66 0.2 14);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-  }
-  html {
-    color-scheme: dark;
   }
   body {
     @apply bg-background text-foreground;
