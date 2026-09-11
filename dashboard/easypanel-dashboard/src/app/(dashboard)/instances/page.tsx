@@ -1,6 +1,9 @@
+import { Boxes, CircleCheck, CircleX, Loader2 } from "lucide-react";
 import { backendFetch } from "@/lib/api";
 import { getServerSession } from "@/lib/session";
 import { Topbar } from "@/components/dashboard/topbar";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { StatCard } from "@/components/dashboard/stat-card";
 import { InstancesTable } from "@/components/dashboard/instances-table";
 import { NewInstanceDialog } from "@/components/dashboard/new-instance-dialog";
 import type { InstanceSummary, NodeSummary } from "@/lib/types";
@@ -12,23 +15,51 @@ export default async function InstancesPage() {
     backendFetch<NodeSummary[]>("/api/nodes"),
   ]);
 
+  const nodeCount = new Set(instances.map((instance) => instance.nodeId)).size;
+  const running = instances.filter((instance) => instance.status === "Running").length;
+  const transitioning = instances.filter((instance) => instance.status === "Starting" || instance.status === "Stopping").length;
+  const attention = instances.filter(
+    (instance) => instance.status === "Crashed" || instance.status === "HashMismatchRefused",
+  ).length;
+
   return (
     <>
-      <Topbar title="Instances" user={session!.user} allSystemsNormal />
-      <div className="flex flex-col gap-5 p-8 flex-1 overflow-auto">
-        <div className="flex items-end justify-between">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-[21px] font-semibold tracking-tight">Instances</h1>
-            <p className="text-[13px] text-muted-foreground">
-              {instances.length} server{instances.length === 1 ? "" : "s"} across{" "}
-              {new Set(instances.map((instance) => instance.nodeId)).size} node
-              {new Set(instances.map((instance) => instance.nodeId)).size === 1 ? "" : "s"}
-            </p>
-          </div>
-          <NewInstanceDialog nodes={nodes} />
-        </div>
+      <Topbar title="Instances" user={session!.user} allSystemsNormal={attention === 0} />
+      <div className="flex-1 overflow-auto">
+        <PageHeader
+          title="Instances"
+          description={`${instances.length} server${instances.length === 1 ? "" : "s"} across ${nodeCount} node${nodeCount === 1 ? "" : "s"}.`}
+          actions={<NewInstanceDialog nodes={nodes} />}
+        />
 
-        <InstancesTable instances={instances} />
+        <div className="flex flex-col gap-5 px-8 pb-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard icon={Boxes} label="Total instances" value={instances.length} sub="Across all nodes" />
+            <StatCard
+              icon={CircleCheck}
+              label="Running"
+              value={running}
+              tone="success"
+              sub={`${Math.round(instances.length ? (running / instances.length) * 100 : 0)}% of fleet`}
+            />
+            <StatCard
+              icon={Loader2}
+              label="In transition"
+              value={transitioning}
+              tone={transitioning ? "warning" : "default"}
+              sub="Starting or stopping"
+            />
+            <StatCard
+              icon={CircleX}
+              label="Needs attention"
+              value={attention}
+              tone={attention ? "destructive" : "success"}
+              sub={attention ? "Crashed or hash mismatch" : "Nothing failing"}
+            />
+          </div>
+
+          <InstancesTable instances={instances} />
+        </div>
       </div>
     </>
   );
