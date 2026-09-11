@@ -150,9 +150,17 @@ namespace EasyPanel.Backend.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<long?>("AvailableMemoryMegabytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("available_memory_megabytes");
+
                     b.Property<int>("ConnectivityMode")
                         .HasColumnType("integer")
                         .HasColumnName("connectivity_mode");
+
+                    b.Property<double?>("CpuUsagePercent")
+                        .HasColumnType("double precision")
+                        .HasColumnName("cpu_usage_percent");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -167,6 +175,10 @@ namespace EasyPanel.Backend.Migrations
                         .HasColumnType("text")
                         .HasColumnName("display_name");
 
+                    b.Property<string>("HostName")
+                        .HasColumnType("text")
+                        .HasColumnName("host_name");
+
                     b.Property<bool>("IsOnline")
                         .HasColumnType("boolean")
                         .HasColumnName("is_online");
@@ -175,10 +187,18 @@ namespace EasyPanel.Backend.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_heartbeat_at_utc");
 
+                    b.Property<int?>("LogicalProcessorCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("logical_processor_count");
+
                     b.Property<string>("NodeTokenHash")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("node_token_hash");
+
+                    b.Property<long?>("TotalPhysicalMemoryMegabytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("total_physical_memory_megabytes");
 
                     b.HasKey("Id")
                         .HasName("pk_nodes");

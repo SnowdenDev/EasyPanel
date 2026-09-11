@@ -15,7 +15,12 @@ public sealed class ListNodesHandler(AppDbContext dbContext)
                 node.ConnectivityMode,
                 node.IsOnline,
                 node.LastHeartbeatAtUtc,
-                node.DaemonVersion))
+                node.DaemonVersion,
+                node.HostName,
+                node.LogicalProcessorCount,
+                node.TotalPhysicalMemoryMegabytes,
+                node.AvailableMemoryMegabytes,
+                node.CpuUsagePercent))
             .ToListAsync(cancellationToken);
     }
 }

@@ -30,20 +30,40 @@ Three components, one repo:
 See [docs/architecture.md](docs/architecture.md) for the full design, including
 the file-transfer relay design, the SignalR hub layout, and the MVP scope.
 
-## Getting started (development)
+## Running it
 
-Prerequisites: .NET 10 SDK, Node.js + pnpm, a local Postgres instance (a
-Docker Compose Postgres is fine for *your own dev machine* — that doesn't
-contradict the "no Docker" rule, which is about the game-server processes
-EasyPanel manages, not the panel's own dev tooling).
+**Backend + Dashboard + Postgres run in Docker** — that doesn't contradict
+the "no Docker" rule above, which is about the game-server processes
+EasyPanel manages, not the panel's own infrastructure.
+
+```bash
+cp .env.example .env
+# edit .env: POSTGRES_PASSWORD, JWT_SIGNING_KEY, BACKEND_PUBLIC_URL, DASHBOARD_PUBLIC_ORIGIN
+docker compose up -d --build
+```
+
+This publishes plain HTTP. Putting HTTPS in front (a real domain, a
+certificate) is your reverse proxy's job, not this repo's — see
+[docs/deployment.md](docs/deployment.md) for the full guide, including how
+to get the one-time-only first admin password out of the logs.
+
+**The Daemon is never in Docker.** It's a native Windows executable
+(Native AOT, self-contained) that runs directly on each machine actually
+hosting game-server processes — Windows Job Objects, which give it real
+process-tree control (no orphaned children, CPU/RAM limits), are a Windows
+kernel feature no container can substitute for. See
+[docs/deployment.md](docs/deployment.md#configuring-and-running-the-daemon)
+for how to register a node and install the daemon as a Windows Service.
+
+For local development instead of Docker:
 
 ```bash
 dotnet build EasyPanel.slnx
 ```
 
-Backend, daemon, and dashboard run instructions will land here as each piece
-comes online — see [docs/architecture.md](docs/architecture.md) for the phased
-build order (Backend → Daemon → Dashboard).
+See [docs/architecture.md](docs/architecture.md) for the phased build order
+(Backend → Daemon → Dashboard) and [docs/deployment.md](docs/deployment.md)'s
+"Manual / bare-metal path" for running each piece directly.
 
 ## Contributing
 

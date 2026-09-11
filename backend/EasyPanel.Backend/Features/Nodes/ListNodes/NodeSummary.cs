@@ -8,5 +8,10 @@ public sealed record NodeSummary(
     NodeConnectivityMode ConnectivityMode,
     bool IsOnline,
     DateTimeOffset? LastHeartbeatAtUtc,
-    string? DaemonVersion
+    string? DaemonVersion,
+    string? HostName,
+    int? LogicalProcessorCount,
+    long? TotalPhysicalMemoryMegabytes,
+    long? AvailableMemoryMegabytes,
+    double? CpuUsagePercent
 );

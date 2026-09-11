@@ -36,6 +36,7 @@ internal sealed class ControlHubConnection(
     IOptions<NodeIdentityOptions> nodeIdentityOptions,
     LaunchedProcessRegistry registry,
     IServiceProvider serviceProvider,
+    SystemStatsCollector systemStatsCollector,
     ILogger<ControlHubConnection> logger)
     : BackgroundService, IBackendReporter
 {
@@ -180,7 +181,17 @@ internal sealed class ControlHubConnection(
 
     private Task SendHeartbeatAsync(CancellationToken cancellationToken)
     {
-        var heartbeat = new DaemonHeartbeat(_options.NodeId, DateTimeOffset.UtcNow, _options.DaemonVersion, registry.RunningInstanceIds.ToArray());
+        var stats = systemStatsCollector.GetSnapshot();
+        var heartbeat = new DaemonHeartbeat(
+            _options.NodeId,
+            DateTimeOffset.UtcNow,
+            _options.DaemonVersion,
+            registry.RunningInstanceIds.ToArray(),
+            stats.HostName,
+            stats.LogicalProcessorCount,
+            stats.TotalPhysicalMemoryMegabytes,
+            stats.AvailableMemoryMegabytes,
+            stats.CpuUsagePercent);
         return InvokeIfConnectedAsync("ReportHeartbeat", cancellationToken, heartbeat);
     }
 

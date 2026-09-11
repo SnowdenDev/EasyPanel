@@ -10,11 +10,17 @@ using EasyPanel.Backend.Features.Instances.ListInstances;
 using EasyPanel.Backend.Features.Instances.RestartInstance;
 using EasyPanel.Backend.Features.Instances.StartInstance;
 using EasyPanel.Backend.Features.Instances.StopInstance;
+using EasyPanel.Backend.Features.Instances.DeleteInstance;
+using EasyPanel.Backend.Features.Instances.UpdateInstance;
 using EasyPanel.Backend.Features.Nodes.ComputeExecutableHash;
 using EasyPanel.Backend.Features.Nodes.ListNodes;
 using EasyPanel.Backend.Features.Nodes.RegisterNode;
+using EasyPanel.Backend.Features.Nodes.DeleteNode;
+using EasyPanel.Backend.Features.Nodes.UpdateNode;
 using EasyPanel.Backend.Features.Staff.AssignServerPermissions;
+using EasyPanel.Backend.Features.Staff.GetStaffPermissions;
 using EasyPanel.Backend.Features.Users.CreateUser;
+using EasyPanel.Backend.Features.Users.ListUsers;
 using EasyPanel.Backend.Infrastructure;
 using EasyPanel.Backend.Infrastructure.Security;
 using FluentValidation;
@@ -61,6 +67,16 @@ builder.Services
     .AddScheme<NodeTokenAuthenticationOptions, NodeTokenAuthenticationHandler>(NodeTokenAuthenticationDefaults.SchemeName, _ => { });
 
 builder.Services.AddAuthorization();
+
+// No CORS policy: the browser never talks to this backend directly for anything. The
+// dashboard's own server proxies every REST call (Server Actions/Route Handlers, plain
+// server-to-server fetch, which browser CORS doesn't apply to) and bridges the
+// DashboardHub's live console/node-status events to the browser as Server-Sent Events
+// from its own origin — see the dashboard's app/api/console-stream and app/api/nodes-stream
+// routes. The only client that connects to a hub here directly is the Daemon
+// (DaemonControlHub/FileTransferHub, node-token auth), which is never a browser and isn't
+// subject to CORS either. See docs/architecture.md's Phase 3 notes for why this changed
+// from an earlier design that did expose DashboardHub to the browser.
 builder.Services.AddSignalR(options =>
 {
     // Default is 32 KB — a 64 KB file chunk, base64-encoded plus JSON envelope overhead,
@@ -89,11 +105,17 @@ builder.Services.AddScoped<RestartInstanceHandler>();
 builder.Services.AddScoped<GetInstanceStatusHandler>();
 builder.Services.AddScoped<ListInstancesHandler>();
 builder.Services.AddScoped<AssignServerPermissionsHandler>();
+builder.Services.AddScoped<GetStaffPermissionsHandler>();
 builder.Services.AddScoped<ListAuditEntriesHandler>();
 builder.Services.AddScoped<CreateUserHandler>();
+builder.Services.AddScoped<ListUsersHandler>();
 builder.Services.AddScoped<DownloadFileHandler>();
 builder.Services.AddScoped<UploadFileHandler>();
 builder.Services.AddScoped<ComputeExecutableHashHandler>();
+builder.Services.AddScoped<UpdateInstanceHandler>();
+builder.Services.AddScoped<DeleteInstanceHandler>();
+builder.Services.AddScoped<UpdateNodeHandler>();
+builder.Services.AddScoped<DeleteNodeHandler>();
 
 var app = builder.Build();
 
@@ -120,11 +142,17 @@ app.MapRestartInstanceEndpoint();
 app.MapGetInstanceStatusEndpoint();
 app.MapListInstancesEndpoint();
 app.MapAssignServerPermissionsEndpoint();
+app.MapGetStaffPermissionsEndpoint();
 app.MapListAuditEntriesEndpoint();
 app.MapCreateUserEndpoint();
+app.MapListUsersEndpoint();
 app.MapDownloadFileEndpoint();
 app.MapUploadFileEndpoint();
 app.MapComputeExecutableHashEndpoint();
+app.MapUpdateInstanceEndpoint();
+app.MapDeleteInstanceEndpoint();
+app.MapUpdateNodeEndpoint();
+app.MapDeleteNodeEndpoint();
 
 app.MapHub<DaemonControlHub>("/hubs/daemon-control");
 app.MapHub<DashboardHub>("/hubs/dashboard");

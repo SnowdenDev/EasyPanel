@@ -12,6 +12,7 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.Configure<NodeIdentityOptions>(builder.Configuration.GetSection(NodeIdentityOptions.SectionName));
 
 builder.Services.AddSingleton<LaunchedProcessRegistry>();
+builder.Services.AddSingleton<SystemStatsCollector>();
 builder.Services.AddSingleton<LaunchInstanceCommandHandler>();
 builder.Services.AddSingleton<StopInstanceCommandHandler>();
 builder.Services.AddSingleton<ComputeExecutableHashCommandHandler>();

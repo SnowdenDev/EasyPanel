@@ -326,18 +326,140 @@ the exit-detection mechanism itself.
    the Local/Remote cap, and reconnect — all verifiable without the dashboard,
    using direct REST/hub calls.
 
-### Phase 3 — Dashboard (consumes the already-working backend + daemon)
+### Phase 3 — Dashboard (consumes the already-working backend + daemon) — done
 
-1. Next.js + Tailwind + shadcn/ui setup.
-2. `lib/auth/getServerSession.ts` — JWT in an httpOnly cookie, SSR login.
-3. `nodes` page — list + live online/offline status.
-4. `instances` page — create instance, start/stop/restart.
-5. `instances/[instanceId]/console` — live console + stdin input.
-6. `instances/[instanceId]/files` — basic file manager respecting the
-   Local/Remote cap.
-7. `staff` page — assign per-server permissions.
-8. `audit-log` page — simple list, no advanced filtering yet.
-9. **Verify**: repeat the end-to-end checks below entirely through the UI.
+Built as `dashboard/easypanel-dashboard/` — Next.js App Router, TypeScript,
+Tailwind, shadcn/ui (Radix primitives). No REST client library — Server
+Components/Actions call the backend directly over plain `fetch` with the
+bearer token attached server-side; the browser only ever holds it in memory
+for the one thing that talks to the backend directly (the dashboard
+SignalR connection), fetched fresh each time via a Server Action (see
+`lib/actions/signalr-token.ts`).
+
+1. Next.js + Tailwind + shadcn/ui setup — done.
+2. `lib/session.ts` — the JWT (plus `displayName`, which isn't a JWT claim)
+   lives in one httpOnly session cookie set by `lib/actions/auth.ts`'s
+   `loginAction`; nothing server-rendered ever exposes it to client JS.
+3. `nodes` page — list + live online/offline status, done for real: the
+   backend already broadcasts `NodeConnectivityChanged` to every connected
+   dashboard client (`DaemonControlHub.OnConnectedAsync`/`OnDisconnectedAsync`)
+   — `components/dashboard/nodes-live-updater.tsx` just listens and calls
+   `router.refresh()`. No polling needed.
+4. `instances` page — create instance (with a real "compute hash from the
+   node's own disk" round trip via the existing `ComputeExecutableHash`
+   endpoint), start/stop/restart. Done.
+5. `instances/[instanceId]/console` — live console + stdin input over the
+   dashboard's own SignalR connection (`SubscribeToInstanceConsole`/
+   `SendConsoleCommand`). Verified with a real daemon + the `EchoTestServer`
+   fixture: live stdout, bidirectional stdin echo, and live status transitions
+   all confirmed end-to-end, not just compiled.
+6. `instances/[instanceId]/files` — **scoped down from the plan**: the
+   backend has no directory-listing endpoint, only single-file
+   download/upload by an exact relative path (see the gotcha below). Built a
+   "download this path" / "upload to this path" panel against what actually
+   exists rather than fabricating a browser it can't back.
+7. `staff` page — create account + assign per-instance permissions. Done,
+   with a real UX gap called out in the UI itself: there's no
+   list-accounts endpoint either, so assigning permissions needs the
+   account's ID pasted in (shown once right after creation).
+8. `audit-log` page — simple list, Admin-only (matches the endpoint's own
+   `RequireRole(Admin)`). Done.
+9. **Verified for real**, not just built: see the Phase 3 section of the
+   end-to-end checklist below — every item there was actually driven through
+   the running UI against a real daemon process, not asserted from reading
+   the code.
+
+**Gotchas hit building the dashboard (Phase 3)**, in the same spirit as the
+Phase 2 list above:
+
+- **shadcn's Radix base + a Base UI-flavored preset don't mix silently.**
+  `npx shadcn@latest init -b radix -p nova` generates components on Radix
+  primitives, but the Nova preset's generated CSS uses Base UI's *boolean*
+  state attributes (`data-open`, `data-closed`, `data-checked`, `data-active`,
+  `data-horizontal`/`data-vertical`) as literal Tailwind custom variants —
+  Radix primitives set `data-state="open"|"closed"|"checked"|"active"` and
+  `data-orientation="horizontal"|"vertical"` instead, which those variants
+  never match. The visible symptom isn't just "no animation": Radix's
+  `Presence` unmounting logic waits for an animation/transition that a
+  mismatched class set never actually starts, so `Dialog`/`Select`/
+  `DropdownMenu` content **never unmounts once opened** — clicking outside,
+  pressing Escape, and even the state going to `data-state="closed"` all
+  "worked" internally while the DOM node stuck around forever. `Checkbox`'s
+  checked style and `Tabs`' active-trigger style silently never applied for
+  the same reason, with no unmount bug because those don't use `Presence`.
+  Fixed by replacing every `data-open:`/`data-closed:`/`data-checked:`/
+  `data-active:`/`data-horizontal:`/`data-vertical:` in
+  `components/ui/{dialog,select,dropdown-menu,checkbox,tabs,separator}.tsx`
+  with the bracket form (`data-[state=open]:`, `data-[orientation=horizontal]:`,
+  etc.) that actually matches what Radix puts on the DOM, and dropped the
+  open/close animation classes entirely on Dialog/Select/DropdownMenu rather
+  than debug Presence's animation-detection further — an instant show/hide
+  is a fine trade for "the dialog reliably closes." If a future contributor
+  changes `-b`/`-p` on the shadcn CLI, or copies a new component from the
+  registry with either flag, audit its generated classes for the same
+  boolean-vs-bracket mismatch before trusting it.
+- **No live CPU/RAM data reaches the backend at all.** The original mockup's
+  console header showed live CPU%/RAM — there's no contract, no heartbeat
+  field, nothing carrying that from the daemon to the backend today. Rather
+  than fabricate numbers, the real dashboard's console header just omits
+  them. Adding real resource metrics is a distinct piece of work: extend
+  `DaemonHeartbeat` (or a new periodic message) with per-instance CPU/RAM
+  read from the Job Object, and a new hub push to the dashboard.
+- **The browser never talks to the backend directly — deliberately, not as a
+  leftover.** An earlier version of this pass had the browser open the
+  SignalR connection straight to the backend (with a matching CORS policy on
+  `Program.cs`). The actual production requirement is narrower than that:
+  only the Dashboard is meant to be public-facing; the Backend's own public
+  exposure (if any) exists solely for the Daemon's outbound connection, a
+  completely separate concern. So the live console/node-status feature was
+  rebuilt to proxy through the Dashboard's own server instead: the real
+  SignalR connection to `DashboardHub` lives server-side
+  (`lib/signalr/server-connection.ts`, over the internal `EASYPANEL_BACKEND_URL`),
+  and gets bridged to the browser as plain Server-Sent Events
+  (`app/api/console-stream/[instanceId]` for output + status,
+  `app/api/console-stream/[instanceId]/command` for sending input,
+  `app/api/nodes-stream` for online/offline). The backend has no CORS policy
+  at all now — nothing browser-originated ever reaches it.
+- **`@microsoft/signalr` in Node.js drags in a real dependency chain, and
+  Next's standalone output tracer doesn't reliably see all of it.** Running
+  a `HubConnection` server-side (see above) needs `ws` (Node has no native
+  WebSocket-as-a-package the way browsers do) and eagerly requires
+  `eventsource` and `tough-cookie` too, regardless of which transport
+  actually ends up used. Each one only surfaced as its own fresh
+  `Cannot find module` at *request* time — after fixing the previous one —
+  because Next's `output: "standalone"` file tracer doesn't follow dynamic
+  `require()` calls made from inside a package already excluded from
+  bundling (`serverExternalPackages`, needed separately because Turbopack's
+  bundler can't handle `@microsoft/signalr`'s own internal dynamic require
+  either — a distinct problem with the same package). Chasing each missing
+  module one deploy at a time is not a sustainable way to find the rest of
+  that chain. Fixed by dropping `output: "standalone"` for this app and
+  copying the full `npm ci` `node_modules` into the runtime image instead
+  (see the Dockerfile) — bigger image, but no more silently-missing
+  transitive optional dependencies.
+- **`Path.IsPathRooted` validates against the wrong machine's OS.**
+  `CreateInstanceRequestValidator` used it to check that `WorkDirectory` is
+  absolute — correct as long as the backend happened to run on Windows,
+  which it always had until this pass moved it into a Linux container.
+  `WorkDirectory` describes a path on the **daemon's** machine, which is
+  always Windows (Job Objects), regardless of what OS the backend itself
+  runs on. `Path.IsPathRooted("C:\\Servers\\x")` returns `false` on Linux,
+  so every legitimate work directory an admin could enter got rejected as
+  "not absolute" — caught by actually creating an instance against a real
+  Dockerized backend, not by reading the code. The same OS-mismatch ran the
+  other way for `ExecutableRelativePath` (checking *not* rooted): on Linux,
+  an absolute Windows path also reads as "not rooted," so it would have
+  silently passed a check meant to reject it. Fixed by matching the Windows
+  path shape explicitly (a drive letter or a UNC prefix) instead of asking
+  the runtime's own OS what "rooted" means.
+- **Instances and nodes are now editable, deleting one still isn't.**
+  `PUT /api/instances/{id}` and `PUT /api/nodes/{id}` exist (each a normal
+  vertical slice — `UpdateInstance`/`UpdateNode` under their respective
+  `Features/` folders) and the Dashboard's Nodes/Instances list rows are
+  clickable through to a detail page with an edit form. There's still no
+  delete for either — a stray test node or instance has to be removed
+  directly in Postgres today. Editing an instance only takes effect the next
+  time it's launched; it never touches a currently running process.
 
 **Deferred** (roadmap items, not MVP): backups, scheduled tasks,
 notifications/webhooks, multi-node aggregate dashboard views, 2FA, a durable
@@ -349,6 +471,13 @@ metrics.
 Everything below runs on a single Windows dev machine (Postgres via Docker
 Compose is fine for local dev tooling — that's not the same as the product's
 "no Docker" rule, which is about the game-server processes EasyPanel manages).
+
+Items 1 and 3 were re-verified for real through the Phase 3 dashboard UI
+(not just direct API/hub calls) on 2026-09-10: a node registered from the
+UI showed online within ~1s of the daemon connecting with no manual refresh,
+and a live `EchoTestServer` instance's console streamed real stdout and
+echoed a command typed into the dashboard's own input, all over the
+dashboard's SignalR connection.
 
 1. Daemon connects with a valid token → `nodes.is_online` flips true in the DB
    and the dashboard reflects it live without a refresh.

@@ -15,5 +15,14 @@ public sealed class Node
     public bool IsOnline { get; set; }
     public DateTimeOffset? LastHeartbeatAtUtc { get; set; }
     public string? DaemonVersion { get; set; }
+
+    // Reported by the daemon on every heartbeat — see SystemStatsCollector on the daemon
+    // side. Null until the first heartbeat after a node registers.
+    public string? HostName { get; set; }
+    public int? LogicalProcessorCount { get; set; }
+    public long? TotalPhysicalMemoryMegabytes { get; set; }
+    public long? AvailableMemoryMegabytes { get; set; }
+    public double? CpuUsagePercent { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
 }

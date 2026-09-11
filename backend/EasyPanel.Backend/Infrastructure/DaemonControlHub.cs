@@ -84,6 +84,11 @@ public sealed class DaemonControlHub(
         var node = await dbContext.Nodes.SingleAsync(candidate => candidate.Id == heartbeat.NodeId);
         node.LastHeartbeatAtUtc = heartbeat.TimestampUtc;
         node.DaemonVersion = heartbeat.DaemonVersion;
+        node.HostName = heartbeat.HostName;
+        node.LogicalProcessorCount = heartbeat.LogicalProcessorCount;
+        node.TotalPhysicalMemoryMegabytes = heartbeat.TotalPhysicalMemoryMegabytes;
+        node.AvailableMemoryMegabytes = heartbeat.AvailableMemoryMegabytes;
+        node.CpuUsagePercent = heartbeat.CpuUsagePercent;
         await dbContext.SaveChangesAsync();
     }
 

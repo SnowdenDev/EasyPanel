@@ -1,0 +1,62 @@
+# Runs the Backend, Dashboard, and their Postgres database. Serves plain HTTP on the ports
+# below — put a reverse proxy (nginx, Caddy, Traefik, NetBird, your cloud LB) in front for
+# TLS and a real domain if you're exposing the Dashboard beyond your own network; that's on
+# you, not this compose file. See docs/deployment.md.
+#
+# The browser only ever talks to the Dashboard. It never connects to the Backend directly —
+# every REST call and the live console/node-status stream are proxied through the
+# Dashboard's own server over the internal Docker network below. The Backend's own public
+# exposure (if any) is for the Daemon's outbound connection only, a separate concern from
+# anything in this file — see docs/deployment.md's daemon section.
+#
+# The Daemon is never part of this file — it's a native Windows executable that runs on
+# each machine actually hosting game servers, installed as a Windows Service.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: easypanel
+      POSTGRES_USER: easypanel
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U easypanel -d easypanel"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/EasyPanel.Backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=easypanel;Username=easypanel;Password=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}"
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?set JWT_SIGNING_KEY in .env — e.g. `openssl rand -base64 48`}
+      Jwt__Issuer: EasyPanel.Backend
+      Jwt__Audience: EasyPanel.Dashboard
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+    ports:
+      # Only needed for the Daemon to reach this backend, or for your own direct API/debug
+      # access — the Dashboard reaches it over the internal Docker network, not this port.
+      - "${BACKEND_PORT:-5299}:8080"
+
+  dashboard:
+    build:
+      context: dashboard/easypanel-dashboard
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      EASYPANEL_BACKEND_URL: http://backend:8080
+    ports:
+      - "${DASHBOARD_PORT:-3000}:3000"
+
+volumes:
+  postgres-data:
