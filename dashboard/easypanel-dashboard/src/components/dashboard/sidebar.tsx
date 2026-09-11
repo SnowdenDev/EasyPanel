@@ -10,6 +10,12 @@ import { cn } from "@/lib/utils";
 // stock icon set read as generic. Everything else (buttons, dialogs, chevrons) uses
 // lucide-react, which is fine — it's the small utility icons that stayed invisible.
 const icons = {
+  overview: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M7.5 15l2.7-4.5 2.6 2.8L16.5 9" />
+    </svg>
+  ),
   nodes: (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="4" width="18" height="5" rx="1.4" />
@@ -45,6 +51,7 @@ const icons = {
 };
 
 const navItems = [
+  { href: "/overview", label: "Overview", icon: icons.overview },
   { href: "/nodes", label: "Nodes", icon: icons.nodes },
   { href: "/instances", label: "Instances", icon: icons.instances },
   { href: "/staff", label: "Staff", icon: icons.staff },
@@ -65,7 +72,7 @@ export function Sidebar() {
 
       <nav className="flex flex-col gap-1.5 px-3">
         {navItems.map((item) => {
-          const active = pathname.startsWith(item.href);
+          const active = item.href === "/overview" ? pathname === item.href : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}
