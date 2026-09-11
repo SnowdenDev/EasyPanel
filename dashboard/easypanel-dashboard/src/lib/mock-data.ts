@@ -98,3 +98,65 @@ export function generateMockFileTree(seed: string): MockFileEntry {
     ],
   };
 }
+
+const MOCK_FILE_FIXTURES: Record<string, string> = {
+  "config/server.cfg": [
+    "# server.cfg — generated fixture, edits are not persisted",
+    "server-name=GameVerse Node",
+    "max-players=32",
+    "port=27015",
+    "tick-rate=64",
+    "map=de_dust2",
+    "password=",
+  ].join("\n"),
+  "config/settings.json": JSON.stringify(
+    {
+      motd: "Welcome to the server",
+      pvp: true,
+      difficulty: "normal",
+      viewDistance: 12,
+      whitelist: false,
+    },
+    null,
+    2,
+  ),
+  "config/permissions.yml": [
+    "groups:",
+    "  admin:",
+    "    permissions:",
+    "      - '*'",
+    "  moderator:",
+    "    permissions:",
+    "      - kick",
+    "      - mute",
+    "  default:",
+    "    permissions:",
+    "      - chat.send",
+  ].join("\n"),
+  "logs/latest.log": [
+    "[12:00:01] [Server] Starting server version 1.4.2",
+    "[12:00:02] [Server] Loading world 'world'...",
+    "[12:00:04] [Server] World loaded in 1.8s",
+    "[12:00:04] [Server] Listening on 0.0.0.0:27015",
+    "[12:03:17] [Player] player_42 connected from 203.0.113.9",
+    "[12:14:55] [Player] player_42 disconnected (timeout)",
+  ].join("\n"),
+  "logs/crash-2024-01.log": [
+    "[03:12:44] [FATAL] Unhandled exception in world tick thread",
+    "System.NullReferenceException: Object reference not set to an instance of an object.",
+    "   at World.TickEntities(Single deltaTime)",
+    "   at ServerLoop.Run()",
+  ].join("\n"),
+  "eula.txt": "eula=true\n# By setting eula=true you agree to the license terms.\n",
+};
+
+/**
+ * Fabricated file contents for the editor preview — the backend has no file-read
+ * endpoint yet, so this stands in for `GET /api/files/content`. Binary/unknown paths
+ * return null (rendered as a "can't preview" state). See docs/BACKEND_REQUIREMENTS.md.
+ */
+export function generateMockFileContent(path: string): string | null {
+  if (path in MOCK_FILE_FIXTURES) return MOCK_FILE_FIXTURES[path];
+  if (path.endsWith(".exe") || path.endsWith(".dat") || path.endsWith(".dat_old")) return null;
+  return `# ${path}\n# (empty fixture — no canned content for this file yet)\n`;
+}

@@ -86,7 +86,57 @@ Implementation notes:
 
 ---
 
-## 3. (Already real, no change needed) Everything else on the Overview page
+## 3. Per-file read/write for the in-browser editor
+
+**Used by:** Instance detail page → Files tab (`src/components/dashboard/files-panel.tsx`),
+the CodeMirror editor pane with Save/Discard.
+**Currently:** `generateMockFileContent(path)` in `src/lib/mock-data.ts` returns a canned
+string per known path (or a placeholder for unknown ones). Clicking "Save" only updates
+in-memory state and shows a toast — nothing is written to disk. Reloading the page loses
+all edits.
+
+**Needed endpoints:**
+
+```
+GET /api/files/content?instanceId={id}&path={relativePath}
+```
+
+Response:
+
+```ts
+{
+  path: string;
+  content: string;      // UTF-8 text; reject/flag binary files (see notes)
+  sizeBytes: number;
+  modifiedAtUtc: string;
+}
+```
+
+```
+PUT /api/files/content?instanceId={id}&path={relativePath}
+Body: { content: string }
+```
+
+Response: `204 No Content` on success, or `409 Conflict` if `modifiedAtUtc` sent in an
+optional `If-Unmodified-Since`-style header/field doesn't match (optimistic concurrency —
+avoids clobbering a change made by another admin or the game process itself).
+
+Implementation notes:
+- Reuse the same path-containment/sandboxing and `canAccessFileManager` permission checks
+  as the existing download/upload/list endpoints.
+- Cap readable/writable file size (e.g. reject over ~2 MB) — this is for config/log editing,
+  not general file transfer; large files should still go through the existing
+  download/upload endpoints.
+- Detect binary content server-side (e.g. presence of a NUL byte in the first N bytes) and
+  return `415 Unsupported Media Type` instead of raw content — the frontend already renders
+  a "can't preview" state for extensions it doesn't recognize, but should also handle this
+  response defensively once real files are hooked up.
+- Consider writing to a temp file and renaming on top of the original (atomic write) so a
+  crash mid-save can't corrupt a config file the game process is actively reading.
+
+---
+
+## 4. (Already real, no change needed) Everything else on the Overview page
 
 For clarity, these Overview page numbers are **not** mocked — they're computed from real
 data already returned by existing endpoints, just aggregated client-side:
