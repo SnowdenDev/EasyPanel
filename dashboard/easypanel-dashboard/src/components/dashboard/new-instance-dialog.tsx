@@ -17,6 +17,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { FormSection } from "@/components/dashboard/form-section";
 import { createInstanceAction, computeExecutableHashAction } from "@/lib/actions/instances";
 import type { NodeSummary } from "@/lib/types";
 
@@ -96,87 +98,99 @@ export function NewInstanceDialog({ nodes }: { nodes: NodeSummary[] }) {
           New Instance
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-[520px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New instance</DialogTitle>
           <DialogDescription>
             The daemon refuses to launch if the executable&apos;s hash doesn&apos;t match this exactly.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="nodeId">Node</Label>
-            <Select value={nodeId} onValueChange={setNodeId}>
-              <SelectTrigger id="nodeId" className="w-full">
-                <SelectValue placeholder="Select a node" />
-              </SelectTrigger>
-              <SelectContent>
-                {nodes.map((node) => (
-                  <SelectItem key={node.id} value={node.id}>
-                    {node.displayName} {node.isOnline ? "" : "(offline)"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <FormSection title="Identity">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="nodeId">Node</Label>
+              <Select value={nodeId} onValueChange={setNodeId}>
+                <SelectTrigger id="nodeId" className="w-full">
+                  <SelectValue placeholder="Select a node" />
+                </SelectTrigger>
+                <SelectContent>
+                  {nodes.map((node) => (
+                    <SelectItem key={node.id} value={node.id}>
+                      {node.displayName} {node.isOnline ? "" : "(offline)"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="displayName">Display name</Label>
-            <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="displayName">Display name</Label>
+              <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
+            </div>
+          </FormSection>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="workDirectory">Work directory</Label>
-            <Input
-              id="workDirectory"
-              placeholder="C:\Servers\myserver"
-              value={workDirectory}
-              onChange={(e) => setWorkDirectory(e.target.value)}
-              required
-            />
-          </div>
+          <Separator />
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="executableRelativePath">Executable (relative to work directory)</Label>
-            <Input
-              id="executableRelativePath"
-              placeholder="server.exe"
-              value={executableRelativePath}
-              onChange={(e) => setExecutableRelativePath(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="expectedExecutableSha256">Expected SHA-256</Label>
-            <div className="flex gap-2">
+          <FormSection title="Executable" description="Where the daemon finds and verifies the process on disk.">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="workDirectory">Work directory</Label>
               <Input
-                id="expectedExecutableSha256"
-                className="font-mono text-xs"
-                value={expectedExecutableSha256}
-                onChange={(e) => setExpectedExecutableSha256(e.target.value)}
+                id="workDirectory"
+                placeholder="C:\Servers\myserver"
+                value={workDirectory}
+                onChange={(e) => setWorkDirectory(e.target.value)}
                 required
               />
-              <Button type="button" variant="secondary" onClick={handleComputeHash} disabled={isHashing}>
-                {isHashing ? <Loader2 className="animate-spin" /> : <Wand2 />}
-                Compute
-              </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Asks the node to hash the file on its own disk — the node must be online.
-            </p>
-          </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="launchArguments">Launch arguments (optional)</Label>
-            <Input
-              id="launchArguments"
-              value={launchArguments}
-              onChange={(e) => setLaunchArguments(e.target.value)}
-            />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="executableRelativePath">Executable (relative to work directory)</Label>
+              <Input
+                id="executableRelativePath"
+                placeholder="server.exe"
+                value={executableRelativePath}
+                onChange={(e) => setExecutableRelativePath(e.target.value)}
+                required
+              />
+            </div>
 
-          {error ? <p className="text-[13px] text-destructive">{error}</p> : null}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="expectedExecutableSha256">Expected SHA-256</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="expectedExecutableSha256"
+                  className="font-mono text-xs"
+                  value={expectedExecutableSha256}
+                  onChange={(e) => setExpectedExecutableSha256(e.target.value)}
+                  required
+                />
+                <Button type="button" variant="secondary" onClick={handleComputeHash} disabled={isHashing}>
+                  {isHashing ? <Loader2 className="animate-spin" /> : <Wand2 />}
+                  Compute
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Asks the node to hash the file on its own disk — the node must be online.
+              </p>
+            </div>
+          </FormSection>
+
+          <Separator />
+
+          <FormSection title="Launch">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="launchArguments">Launch arguments (optional)</Label>
+              <Input
+                id="launchArguments"
+                value={launchArguments}
+                onChange={(e) => setLaunchArguments(e.target.value)}
+              />
+            </div>
+          </FormSection>
+
+          {error ? (
+            <p className="text-[13px] text-destructive bg-destructive/10 rounded-md px-3 py-2">{error}</p>
+          ) : null}
 
           <DialogFooter>
             <Button type="submit" disabled={isPending}>

@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { FormSection } from "@/components/dashboard/form-section";
 import { updateInstanceAction, computeExecutableHashAction } from "@/lib/actions/instances";
 import type { InstanceStatusDetails } from "@/lib/types";
 
@@ -72,85 +74,97 @@ export function InstanceEditForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-w-md">
-      <p className="text-[13px] text-muted-foreground">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5 max-w-md">
+      <p className="text-[13px] text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
         Changes apply the next time this instance is started — they don&apos;t touch a
         currently running process.
       </p>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="displayName">Display name</Label>
-        <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
-      </div>
+      <FormSection title="Identity">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="displayName">Display name</Label>
+          <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
+        </div>
+      </FormSection>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="workDirectory">Work directory</Label>
-        <Input
-          id="workDirectory"
-          value={workDirectory}
-          onChange={(e) => setWorkDirectory(e.target.value)}
-          required
-        />
-      </div>
+      <Separator />
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="executableRelativePath">Executable (relative to work directory)</Label>
-        <Input
-          id="executableRelativePath"
-          value={executableRelativePath}
-          onChange={(e) => setExecutableRelativePath(e.target.value)}
-          required
-        />
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="expectedExecutableSha256">Expected SHA-256</Label>
-        <div className="flex gap-2">
+      <FormSection title="Executable" description="Where the daemon finds and verifies the process on disk.">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="workDirectory">Work directory</Label>
           <Input
-            id="expectedExecutableSha256"
-            className="font-mono text-xs"
-            value={expectedExecutableSha256}
-            onChange={(e) => setExpectedExecutableSha256(e.target.value)}
+            id="workDirectory"
+            value={workDirectory}
+            onChange={(e) => setWorkDirectory(e.target.value)}
             required
           />
-          <Button type="button" variant="secondary" onClick={handleComputeHash} disabled={isHashing}>
-            {isHashing ? <Loader2 className="animate-spin" /> : <Wand2 />}
-            Compute
-          </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Asks the node to hash the file on its own disk — the node must be online.
-        </p>
-      </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="launchArguments">Launch arguments (optional)</Label>
-        <Input id="launchArguments" value={launchArguments} onChange={(e) => setLaunchArguments(e.target.value)} />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="cpuLimitPercent">CPU limit % (optional)</Label>
+          <Label htmlFor="executableRelativePath">Executable (relative to work directory)</Label>
           <Input
-            id="cpuLimitPercent"
-            type="number"
-            min={1}
-            max={100}
-            value={cpuLimitPercent}
-            onChange={(e) => setCpuLimitPercent(e.target.value)}
+            id="executableRelativePath"
+            value={executableRelativePath}
+            onChange={(e) => setExecutableRelativePath(e.target.value)}
+            required
           />
         </div>
+
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="memoryLimitMegabytes">Memory limit MB (optional)</Label>
-          <Input
-            id="memoryLimitMegabytes"
-            type="number"
-            min={1}
-            value={memoryLimitMegabytes}
-            onChange={(e) => setMemoryLimitMegabytes(e.target.value)}
-          />
+          <Label htmlFor="expectedExecutableSha256">Expected SHA-256</Label>
+          <div className="flex gap-2">
+            <Input
+              id="expectedExecutableSha256"
+              className="font-mono text-xs"
+              value={expectedExecutableSha256}
+              onChange={(e) => setExpectedExecutableSha256(e.target.value)}
+              required
+            />
+            <Button type="button" variant="secondary" onClick={handleComputeHash} disabled={isHashing}>
+              {isHashing ? <Loader2 className="animate-spin" /> : <Wand2 />}
+              Compute
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Asks the node to hash the file on its own disk — the node must be online.
+          </p>
         </div>
-      </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="launchArguments">Launch arguments (optional)</Label>
+          <Input id="launchArguments" value={launchArguments} onChange={(e) => setLaunchArguments(e.target.value)} />
+        </div>
+      </FormSection>
+
+      <Separator />
+
+      <FormSection title="Resource limits" description="Leave blank to run without a cap.">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="cpuLimitPercent">CPU limit %</Label>
+            <Input
+              id="cpuLimitPercent"
+              type="number"
+              min={1}
+              max={100}
+              placeholder="No cap"
+              value={cpuLimitPercent}
+              onChange={(e) => setCpuLimitPercent(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="memoryLimitMegabytes">Memory limit MB</Label>
+            <Input
+              id="memoryLimitMegabytes"
+              type="number"
+              min={1}
+              placeholder="No cap"
+              value={memoryLimitMegabytes}
+              onChange={(e) => setMemoryLimitMegabytes(e.target.value)}
+            />
+          </div>
+        </div>
+      </FormSection>
 
       <Button type="submit" disabled={isPending} className="self-start">
         {isPending ? <Loader2 className="animate-spin" /> : <Save />}
