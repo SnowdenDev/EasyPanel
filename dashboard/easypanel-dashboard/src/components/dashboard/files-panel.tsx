@@ -7,17 +7,28 @@ import { javascript } from "@codemirror/lang-javascript";
 import { yaml } from "@codemirror/lang-yaml";
 import { oneDark } from "@codemirror/theme-one-dark";
 import {
+  AppWindow,
+  Blocks,
   ChevronRight,
   Circle,
+  Database,
   Download,
   File,
+  FileArchive,
+  FileCode2,
+  FileJson,
+  FileText,
   FileWarning,
   Folder,
+  FolderOpen,
   Loader2,
   RotateCcw,
   Save,
+  ScrollText,
+  Settings2,
   Upload,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -60,6 +71,54 @@ interface OpenTab {
   draft: string;
 }
 
+interface FileIconMeta {
+  icon: LucideIcon;
+  className: string;
+}
+
+/**
+ * Maps a filename to a distinct icon + color so binaries (.exe, .dll), archives, data
+ * files, and config/text files are visually distinguishable at a glance — like a
+ * code editor's file tree.
+ */
+function getFileIconMeta(name: string): FileIconMeta {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+
+  switch (ext) {
+    case "exe":
+      return { icon: AppWindow, className: "text-blue-500 dark:text-blue-400" };
+    case "dll":
+    case "so":
+    case "dylib":
+      return { icon: Blocks, className: "text-violet-500 dark:text-violet-400" };
+    case "json":
+      return { icon: FileJson, className: "text-amber-500 dark:text-amber-400" };
+    case "yml":
+    case "yaml":
+      return { icon: FileCode2, className: "text-emerald-500 dark:text-emerald-400" };
+    case "log":
+      return { icon: ScrollText, className: "text-muted-foreground" };
+    case "cfg":
+    case "ini":
+    case "conf":
+      return { icon: Settings2, className: "text-cyan-500 dark:text-cyan-400" };
+    case "dat":
+    case "dat_old":
+    case "db":
+      return { icon: Database, className: "text-orange-500 dark:text-orange-400" };
+    case "zip":
+    case "jar":
+    case "tar":
+    case "gz":
+      return { icon: FileArchive, className: "text-yellow-600 dark:text-yellow-500" };
+    case "txt":
+    case "md":
+      return { icon: FileText, className: "text-muted-foreground" };
+    default:
+      return { icon: File, className: "text-muted-foreground" };
+  }
+}
+
 function FileNode({
   entry,
   depth,
@@ -85,7 +144,11 @@ function FileNode({
           style={{ paddingLeft: `${depth * 14 + 8}px` }}
         >
           <ChevronRight size={13} className={cn("text-muted-foreground shrink-0 transition-transform", open && "rotate-90")} />
-          <Folder size={14} className="text-muted-foreground shrink-0" />
+          {open ? (
+            <FolderOpen size={14} className="text-blue-500 dark:text-blue-400 shrink-0" />
+          ) : (
+            <Folder size={14} className="text-blue-500 dark:text-blue-400 shrink-0" />
+          )}
           <span className="text-[12.8px] truncate">{entry.name}</span>
         </button>
         {open && entry.children ? (
@@ -107,6 +170,7 @@ function FileNode({
   }
 
   const isActive = activePath === path;
+  const { icon: FileIcon, className: iconClassName } = getFileIconMeta(entry.name);
 
   return (
     <button
@@ -118,7 +182,7 @@ function FileNode({
       )}
       style={{ paddingLeft: `${depth * 14 + 26}px` }}
     >
-      <File size={13} className="shrink-0 text-muted-foreground" />
+      <FileIcon size={13} className={cn("shrink-0", isActive ? "text-primary" : iconClassName)} />
       <span className="flex-1 text-[12.8px] truncate font-mono">{entry.name}</span>
       <span className="text-[11px] text-muted-foreground shrink-0">{formatBytes(entry.sizeBytes)}</span>
     </button>
