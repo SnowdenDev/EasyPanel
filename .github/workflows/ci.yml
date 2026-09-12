@@ -19,7 +19,7 @@ jobs:
     name: .NET
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
@@ -37,7 +37,7 @@ jobs:
       run:
         working-directory: dashboard/easypanel-dashboard
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -55,6 +55,6 @@ jobs:
       POSTGRES_PASSWORD: ci-postgres-password
       JWT_SIGNING_KEY: ci-only-signing-key-at-least-thirty-two-bytes-long
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - run: docker compose config --quiet
       - run: docker compose build
