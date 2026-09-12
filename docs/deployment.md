@@ -367,9 +367,9 @@ from wherever the Dashboard process runs.
 
 Run it with `npm start` behind your own reverse proxy/TLS termination, or on
 whatever Node.js hosting you use (a systemd service running `npm start`, a
-container, a platform like Vercel/Render — nothing about this app is tied to
-a specific host). This is the *only* component in the stack a browser needs
-to reach.
+container, or another Node.js-compatible platform). Nothing about this app is
+tied to a specific host. This is the *only* component in the stack a browser
+needs to reach.
 
 ## 7. Known gaps before you rely on this in real production
 
