@@ -1,12 +1,12 @@
 # Build context is this directory (dashboard/easypanel-dashboard) — the dashboard has no
 # dependency on the rest of the monorepo, unlike the Backend/Daemon which share `contracts/`.
 
-FROM node:22-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM node:22-alpine AS builder
+FROM node:26-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -15,7 +15,7 @@ COPY . .
 # request time from a real environment variable, not baked in here.
 RUN npm run build
 
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 # The full node_modules from `npm ci`, not a traced subset — see next.config.ts for why:
