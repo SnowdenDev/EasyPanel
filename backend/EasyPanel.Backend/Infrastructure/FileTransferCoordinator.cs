@@ -11,37 +11,56 @@ namespace EasyPanel.Backend.Infrastructure;
 /// </summary>
 public sealed class FileTransferCoordinator
 {
-    private readonly ConcurrentDictionary<Guid, Channel<FileTransferEvent>> _channelsByTransferId = new();
+    private const int BufferedEventCapacity = 16;
+    private readonly ConcurrentDictionary<Guid, TransferState> _transfersById = new();
 
-    public ChannelReader<FileTransferEvent> RegisterTransfer(Guid transferId)
+    public ChannelReader<FileTransferEvent> RegisterTransfer(Guid nodeId, Guid transferId)
     {
-        var channel = Channel.CreateUnbounded<FileTransferEvent>();
-        _channelsByTransferId[transferId] = channel;
+        var channel = Channel.CreateBounded<FileTransferEvent>(new BoundedChannelOptions(BufferedEventCapacity)
+        {
+            SingleReader = true,
+            SingleWriter = false,
+            FullMode = BoundedChannelFullMode.Wait,
+        });
+
+        _transfersById[transferId] = new TransferState(nodeId, channel);
         return channel.Reader;
     }
 
     public void CompleteAndRemove(Guid transferId)
     {
-        if (_channelsByTransferId.TryRemove(transferId, out var channel))
+        if (_transfersById.TryRemove(transferId, out var transfer))
         {
-            channel.Writer.TryComplete();
+            transfer.Channel.Writer.TryComplete();
         }
     }
 
-    public void PushMetadata(Guid transferId, long totalSizeBytes) =>
-        Push(transferId, new FileTransferMetadataEvent(totalSizeBytes));
+    public ValueTask<bool> PushMetadataAsync(Guid nodeId, Guid transferId, long totalSizeBytes, CancellationToken cancellationToken) =>
+        PushAsync(nodeId, transferId, new FileTransferMetadataEvent(totalSizeBytes), cancellationToken);
 
-    public void PushChunk(Guid transferId, byte[] data, bool isFinal) =>
-        Push(transferId, new FileTransferChunkEvent(data, isFinal));
+    public ValueTask<bool> PushChunkAsync(Guid nodeId, Guid transferId, byte[] data, bool isFinal, CancellationToken cancellationToken) =>
+        PushAsync(nodeId, transferId, new FileTransferChunkEvent(data, isFinal), cancellationToken);
 
-    public void PushResult(Guid transferId, bool succeeded, string? failureReason) =>
-        Push(transferId, new FileTransferResultEvent(succeeded, failureReason));
+    public ValueTask<bool> PushResultAsync(Guid nodeId, Guid transferId, bool succeeded, string? failureReason, CancellationToken cancellationToken) =>
+        PushAsync(nodeId, transferId, new FileTransferResultEvent(succeeded, failureReason), cancellationToken);
 
-    private void Push(Guid transferId, FileTransferEvent @event)
+    private async ValueTask<bool> PushAsync(Guid nodeId, Guid transferId, FileTransferEvent @event, CancellationToken cancellationToken)
     {
-        if (_channelsByTransferId.TryGetValue(transferId, out var channel))
+        if (!_transfersById.TryGetValue(transferId, out var transfer) || transfer.NodeId != nodeId)
         {
-            channel.Writer.TryWrite(@event);
+            return false;
+        }
+
+        try
+        {
+            await transfer.Channel.Writer.WriteAsync(@event, cancellationToken);
+            return true;
+        }
+        catch (ChannelClosedException)
+        {
+            return false;
         }
     }
+
+    private sealed record TransferState(Guid NodeId, Channel<FileTransferEvent> Channel);
 }

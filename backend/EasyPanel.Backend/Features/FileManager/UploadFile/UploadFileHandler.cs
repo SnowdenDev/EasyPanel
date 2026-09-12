@@ -45,7 +45,7 @@ public sealed class UploadFileHandler(AppDbContext dbContext, FileTransferCoordi
         }
 
         var transferId = Guid.NewGuid();
-        var reader = coordinator.RegisterTransfer(transferId);
+        var reader = coordinator.RegisterTransfer(instance.NodeId, transferId);
         var nodeGroup = HubGroupNames.NodeGroup(instance.NodeId);
 
         try

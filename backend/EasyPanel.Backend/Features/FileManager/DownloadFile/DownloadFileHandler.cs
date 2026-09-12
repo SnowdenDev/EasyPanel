@@ -37,7 +37,7 @@ public sealed class DownloadFileHandler(AppDbContext dbContext, FileTransferCoor
         }
 
         var transferId = Guid.NewGuid();
-        var reader = coordinator.RegisterTransfer(transferId);
+        var reader = coordinator.RegisterTransfer(instance.NodeId, transferId);
 
         var request = new FileTransferRequest(transferId, instance.Id, instance.WorkDirectory, relativePath, FileTransferDirection.Download);
         await fileTransferHub.Clients.Group(HubGroupNames.NodeGroup(instance.NodeId)).SendAsync("BeginFileDownload", request, cancellationToken);

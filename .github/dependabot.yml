@@ -1,0 +1,32 @@
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dotnet-dependencies:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /dashboard/easypanel-dashboard
+    schedule:
+      interval: weekly
+    groups:
+      dashboard-dependencies:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /backend/EasyPanel.Backend
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /dashboard/easypanel-dashboard
+    schedule:
+      interval: weekly

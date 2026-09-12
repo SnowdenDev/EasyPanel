@@ -9,6 +9,15 @@ before every launch.
 
 Licensed under [AGPL-3.0](LICENSE).
 
+[![CI](https://github.com/SnowdenDev/EasyPanel/actions/workflows/ci.yml/badge.svg)](https://github.com/SnowdenDev/EasyPanel/actions/workflows/ci.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
+
+> **Project status:** active pre-1.0 development. Core authentication, node registration,
+> instance lifecycle, live console, staff permissions, audit log, and exact-path file
+> transfers are implemented. Fleet-history charts and the visual file browser still show
+> clearly labelled preview data. Review the [deployment guide](docs/deployment.md) before
+> exposing an installation to the internet.
+
 ## Architecture
 
 Three components, one repo:
@@ -58,7 +67,11 @@ for how to register a node and install the daemon as a Windows Service.
 For local development instead of Docker:
 
 ```bash
-dotnet build EasyPanel.slnx
+dotnet test EasyPanel.slnx -c Release
+cd dashboard/easypanel-dashboard
+npm ci
+npm run lint
+npm run build
 ```
 
 See [docs/architecture.md](docs/architecture.md) for the phased build order
@@ -68,5 +81,8 @@ See [docs/architecture.md](docs/architecture.md) for the phased build order
 ## Contributing
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) first — it covers the vertical-slice
-convention, naming standards, and why they matter for a project meant to stay
-readable to outside contributors.
+convention, validation commands, and pull-request workflow. Community changes arrive as
+pull requests; protected-branch checks and code-owner review decide what reaches `main`.
+
+Please report vulnerabilities privately according to [SECURITY.md](SECURITY.md) and follow
+the [Code of Conduct](CODE_OF_CONDUCT.md) in all project spaces.

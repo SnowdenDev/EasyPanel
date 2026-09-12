@@ -19,10 +19,9 @@ image) — see architecture.md's Phase 3 gotchas for the details.
 
 Known real gaps, not addressed by this guide, tracked in
 [architecture.md](architecture.md#phase-3--dashboard-consumes-the-already-working-backend--daemon--done):
-no file-directory browser (single-file download/upload by exact path only),
-no live CPU/RAM in the console view, no way to list existing Staff accounts
-in the UI (an account's ID is shown once at creation and must be pasted into
-the permissions form), no instance-settings editing.
+the directory-tree/editor UI and fleet-history charts still use clearly labelled preview
+data, and the console view has no live CPU/RAM telemetry. Exact-path file upload/download,
+staff listing and permissions, and instance-settings editing are implemented.
 
 **Recommended path: Docker Compose** for the Backend + Dashboard + Postgres
 (see below) — the Daemon is never containerized (see Topology for why) and

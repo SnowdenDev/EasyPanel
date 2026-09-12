@@ -12,36 +12,70 @@ internal static class PathTraversalGuard
     {
         resolvedFullPath = string.Empty;
 
-        // Path.Combine silently discards the first argument if the second is rooted
-        // (absolute, drive-qualified, or UNC) — reject that case explicitly rather than
-        // relying only on the StartsWith check below to catch it after the fact.
-        if (Path.IsPathRooted(relativePath))
+        if (string.IsNullOrWhiteSpace(rootDirectory)
+            || string.IsNullOrWhiteSpace(relativePath)
+            || Path.IsPathRooted(relativePath))
         {
             return false;
         }
 
-        var rootFullPath = Path.GetFullPath(rootDirectory);
-        var candidateFullPath = Path.GetFullPath(Path.Combine(rootFullPath, relativePath));
-
-        var staysUnderRoot = candidateFullPath.StartsWith(rootFullPath, StringComparison.OrdinalIgnoreCase)
-            && (candidateFullPath.Length == rootFullPath.Length || candidateFullPath[rootFullPath.Length] == Path.DirectorySeparatorChar);
-
-        if (!staysUnderRoot)
+        try
         {
-            return false;
-        }
+            var rootFullPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(rootDirectory));
+            var candidateFullPath = Path.GetFullPath(Path.Combine(rootFullPath, relativePath));
+            var rootPrefix = Path.EndsInDirectorySeparator(rootFullPath)
+                ? rootFullPath
+                : rootFullPath + Path.DirectorySeparatorChar;
 
-        // A symlink that lives inside the root but points outside it is still an escape.
-        if (File.Exists(candidateFullPath))
-        {
-            var linkTarget = File.ResolveLinkTarget(candidateFullPath, returnFinalTarget: true);
-            if (linkTarget is not null && !Path.GetFullPath(linkTarget.FullName).StartsWith(rootFullPath, StringComparison.OrdinalIgnoreCase))
+            var staysUnderRoot = candidateFullPath.Equals(rootFullPath, StringComparison.OrdinalIgnoreCase)
+                || candidateFullPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase);
+
+            if (!staysUnderRoot || ContainsReparsePoint(rootFullPath, candidateFullPath))
             {
                 return false;
             }
+
+            resolvedFullPath = candidateFullPath;
+            return true;
+        }
+        catch (Exception exception) when (exception is ArgumentException or IOException or NotSupportedException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static bool ContainsReparsePoint(string rootFullPath, string candidateFullPath)
+    {
+        if (IsExistingReparsePoint(rootFullPath))
+        {
+            return true;
         }
 
-        resolvedFullPath = candidateFullPath;
-        return true;
+        var relativePath = Path.GetRelativePath(rootFullPath, candidateFullPath);
+        var currentPath = rootFullPath;
+
+        foreach (var segment in relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+        {
+            if (segment.Length == 0 || segment == ".")
+            {
+                continue;
+            }
+
+            currentPath = Path.Combine(currentPath, segment);
+            if (!File.Exists(currentPath) && !Directory.Exists(currentPath))
+            {
+                break;
+            }
+
+            if (IsExistingReparsePoint(currentPath))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
+
+    private static bool IsExistingReparsePoint(string path) =>
+        (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
 }

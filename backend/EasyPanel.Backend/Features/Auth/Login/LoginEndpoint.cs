@@ -1,4 +1,5 @@
 using FluentValidation;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace EasyPanel.Backend.Features.Auth.Login;
 
@@ -25,6 +26,7 @@ public static class LoginEndpoint
                 : Results.Ok(response);
         })
         .WithName("Login")
+        .RequireRateLimiting("login")
         .AllowAnonymous();
     }
 }

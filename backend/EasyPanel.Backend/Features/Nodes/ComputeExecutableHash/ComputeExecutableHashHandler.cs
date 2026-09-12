@@ -26,7 +26,7 @@ public sealed class ComputeExecutableHashHandler(
         }
 
         var correlationId = Guid.NewGuid();
-        var pendingResult = tracker.RegisterAsync(correlationId);
+        var pendingResult = tracker.RegisterAsync(nodeId, correlationId);
 
         var command = new ComputeExecutableHashCommand(correlationId, request.WorkDirectory, request.ExecutableRelativePath);
         await daemonControlHub.Clients.Group(HubGroupNames.NodeGroup(nodeId)).SendAsync("ComputeExecutableHash", command, cancellationToken);

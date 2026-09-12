@@ -8,7 +8,7 @@ public sealed class CreateInstanceRequestValidatorTests
     private readonly CreateInstanceRequestValidator _validator = new();
 
     private static CreateInstanceRequest ValidRequest(
-        string workDirectory = "D:/GameServers/Valheim01",
+        string workDirectory = @"D:\GameServers\Valheim01",
         string executableRelativePath = "valheim_server.exe",
         string expectedExecutableSha256 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
     {

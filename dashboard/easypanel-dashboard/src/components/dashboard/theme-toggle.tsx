@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 import { Moon, Sun, Monitor } from "lucide-react";
 import {
@@ -17,13 +17,11 @@ const options = [
   { value: "system", label: "System", icon: Monitor },
 ] as const;
 
+const subscribeToHydration = () => () => undefined;
+
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  // Avoid a light/dark icon flash before next-themes resolves the persisted preference on
-  // the client — render a neutral placeholder of identical size until then.
-  useEffect(() => setMounted(true), []);
+  const mounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
 
   const active = options.find((option) => option.value === theme) ?? options[2];
   const ActiveIcon = active.icon;

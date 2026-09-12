@@ -11,25 +11,36 @@ namespace EasyPanel.Backend.Infrastructure;
 /// </summary>
 public sealed class PendingHashComputationTracker
 {
-    private readonly ConcurrentDictionary<Guid, TaskCompletionSource<HashComputationResult>> _pending = new();
+    private readonly ConcurrentDictionary<Guid, PendingHashComputation> _pending = new();
 
-    public Task<HashComputationResult> RegisterAsync(Guid correlationId)
+    public Task<HashComputationResult> RegisterAsync(Guid nodeId, Guid correlationId)
     {
         var completionSource = new TaskCompletionSource<HashComputationResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[correlationId] = completionSource;
+        _pending[correlationId] = new PendingHashComputation(nodeId, completionSource);
         return completionSource.Task;
     }
 
-    public void Complete(HashComputationResult result)
+    public bool Complete(Guid nodeId, HashComputationResult result)
     {
-        if (_pending.TryRemove(result.CorrelationId, out var completionSource))
+        if (!_pending.TryGetValue(result.CorrelationId, out var pending) || pending.NodeId != nodeId)
         {
-            completionSource.TrySetResult(result);
+            return false;
         }
+
+        if (!_pending.TryRemove(new KeyValuePair<Guid, PendingHashComputation>(result.CorrelationId, pending)))
+        {
+            return false;
+        }
+
+        return pending.CompletionSource.TrySetResult(result);
     }
 
     public void Cancel(Guid correlationId)
     {
         _pending.TryRemove(correlationId, out _);
     }
+
+    private sealed record PendingHashComputation(
+        Guid NodeId,
+        TaskCompletionSource<HashComputationResult> CompletionSource);
 }

@@ -63,7 +63,9 @@ public sealed class DaemonControlHub(
             // state once the daemon reconnects (see docs/architecture.md).
             var affectedInstances = await dbContext.Instances
                 .Where(instance => instance.NodeId == nodeId
-                    && (instance.Status == InstanceStatus.Running || instance.Status == InstanceStatus.Starting))
+                    && (instance.Status == InstanceStatus.Running
+                        || instance.Status == InstanceStatus.Starting
+                        || instance.Status == InstanceStatus.Stopping))
                 .ToListAsync();
 
             foreach (var instance in affectedInstances)
@@ -81,7 +83,13 @@ public sealed class DaemonControlHub(
 
     public async Task ReportHeartbeat(DaemonHeartbeat heartbeat)
     {
-        var node = await dbContext.Nodes.SingleAsync(candidate => candidate.Id == heartbeat.NodeId);
+        var nodeId = Context.GetNodeId();
+        if (heartbeat.NodeId != nodeId)
+        {
+            throw new HubException("A daemon cannot report a heartbeat for another node.");
+        }
+
+        var node = await dbContext.Nodes.SingleAsync(candidate => candidate.Id == nodeId);
         node.LastHeartbeatAtUtc = heartbeat.TimestampUtc;
         node.DaemonVersion = heartbeat.DaemonVersion;
         node.HostName = heartbeat.HostName;
@@ -94,7 +102,7 @@ public sealed class DaemonControlHub(
 
     public async Task ReportInstanceStatusChanged(InstanceStatusChanged statusChanged)
     {
-        var instance = await dbContext.Instances.SingleAsync(candidate => candidate.Id == statusChanged.InstanceId);
+        var instance = await GetOwnedInstanceAsync(statusChanged.InstanceId);
         instance.Status = statusChanged.NewStatus;
         instance.UpdatedAtUtc = statusChanged.TimestampUtc;
         await dbContext.SaveChangesAsync();
@@ -105,6 +113,8 @@ public sealed class DaemonControlHub(
 
     public async Task ReportConsoleOutputLine(ConsoleOutputLine line)
     {
+        await EnsureInstanceOwnershipAsync(line.InstanceId);
+
         // A small backfill ring buffer for late-subscribing dashboard clients is a
         // deliberate Phase 3 addition, tracked in docs/architecture.md — not needed for
         // the Phase 1/2 verification pass, which only needs live streaming to work.
@@ -114,7 +124,7 @@ public sealed class DaemonControlHub(
 
     public async Task ReportInstanceCrashed(InstanceCrashed crashed)
     {
-        var instance = await dbContext.Instances.SingleAsync(candidate => candidate.Id == crashed.InstanceId);
+        var instance = await GetOwnedInstanceAsync(crashed.InstanceId);
         instance.Status = InstanceStatus.Crashed;
         instance.UpdatedAtUtc = crashed.TimestampUtc;
 
@@ -135,27 +145,79 @@ public sealed class DaemonControlHub(
 
     public async Task ReportCurrentInstanceStates(InstanceStatusSnapshot[] snapshot)
     {
-        var instanceIds = snapshot.Select(entry => entry.InstanceId).ToList();
+        var nodeId = Context.GetNodeId();
+        var duplicateInstanceId = snapshot
+            .GroupBy(entry => entry.InstanceId)
+            .FirstOrDefault(group => group.Count() > 1)?.Key;
+
+        if (duplicateInstanceId is not null)
+        {
+            throw new HubException($"Instance '{duplicateInstanceId}' appeared more than once in the state snapshot.");
+        }
+
         var instances = await dbContext.Instances
-            .Where(instance => instanceIds.Contains(instance.Id))
+            .Where(instance => instance.NodeId == nodeId)
             .ToDictionaryAsync(instance => instance.Id);
 
-        foreach (var entry in snapshot)
+        var reportedStates = snapshot.ToDictionary(entry => entry.InstanceId, entry => entry.CurrentStatus);
+        var unownedInstanceId = reportedStates.Keys.FirstOrDefault(instanceId => !instances.ContainsKey(instanceId));
+        if (unownedInstanceId != Guid.Empty)
         {
-            if (!instances.TryGetValue(entry.InstanceId, out var instance))
+            throw new HubException($"Instance '{unownedInstanceId}' does not belong to the authenticated node.");
+        }
+
+        foreach (var instance in instances.Values)
+        {
+            InstanceStatus? reconciledStatus = null;
+            if (reportedStates.TryGetValue(instance.Id, out var reportedStatus))
+            {
+                reconciledStatus = reportedStatus;
+            }
+            else if (instance.Status is InstanceStatus.Running or InstanceStatus.Starting or InstanceStatus.Stopping or InstanceStatus.Unknown)
+            {
+                reconciledStatus = InstanceStatus.Stopped;
+            }
+
+            if (reconciledStatus is null || instance.Status == reconciledStatus)
             {
                 continue;
             }
 
-            instance.Status = entry.CurrentStatus;
+            instance.Status = reconciledStatus.Value;
             instance.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-            await dashboardHub.Clients.Group(HubGroupNames.InstanceConsoleGroup(entry.InstanceId))
-                .SendAsync("InstanceStatusChanged", entry.InstanceId, entry.CurrentStatus.ToString());
+            await dashboardHub.Clients.Group(HubGroupNames.InstanceConsoleGroup(instance.Id))
+                .SendAsync("InstanceStatusChanged", instance.Id, reconciledStatus.Value.ToString());
         }
 
         await dbContext.SaveChangesAsync();
     }
 
-    public void ReportExecutableHashComputed(HashComputationResult result) => hashComputationTracker.Complete(result);
+    public void ReportExecutableHashComputed(HashComputationResult result)
+    {
+        var nodeId = Context.GetNodeId();
+        hashComputationTracker.Complete(nodeId, result);
+    }
+
+    private async Task<Instance> GetOwnedInstanceAsync(Guid instanceId)
+    {
+        var nodeId = Context.GetNodeId();
+        return await dbContext.Instances.SingleOrDefaultAsync(
+            candidate => candidate.Id == instanceId && candidate.NodeId == nodeId,
+            Context.ConnectionAborted)
+            ?? throw new HubException($"Instance '{instanceId}' does not belong to the authenticated node.");
+    }
+
+    private async Task EnsureInstanceOwnershipAsync(Guid instanceId)
+    {
+        var nodeId = Context.GetNodeId();
+        var ownsInstance = await dbContext.Instances.AnyAsync(
+            candidate => candidate.Id == instanceId && candidate.NodeId == nodeId,
+            Context.ConnectionAborted);
+
+        if (!ownsInstance)
+        {
+            throw new HubException($"Instance '{instanceId}' does not belong to the authenticated node.");
+        }
+    }
 }

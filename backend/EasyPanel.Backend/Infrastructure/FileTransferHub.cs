@@ -20,12 +20,21 @@ public sealed class FileTransferHub(FileTransferCoordinator coordinator) : Hub
         await base.OnConnectedAsync();
     }
 
-    public void ReportFileTransferMetadata(FileTransferMetadata metadata) =>
-        coordinator.PushMetadata(metadata.TransferId, metadata.TotalSizeBytes);
+    public async Task ReportFileTransferMetadata(FileTransferMetadata metadata)
+    {
+        var nodeId = Context.GetNodeId();
+        await coordinator.PushMetadataAsync(nodeId, metadata.TransferId, metadata.TotalSizeBytes, Context.ConnectionAborted);
+    }
 
-    public void SendFileChunk(FileChunk chunk) =>
-        coordinator.PushChunk(chunk.TransferId, chunk.Bytes, chunk.IsFinal);
+    public async Task SendFileChunk(FileChunk chunk)
+    {
+        var nodeId = Context.GetNodeId();
+        await coordinator.PushChunkAsync(nodeId, chunk.TransferId, chunk.Bytes, chunk.IsFinal, Context.ConnectionAborted);
+    }
 
-    public void ReportFileTransferResult(FileTransferResult result) =>
-        coordinator.PushResult(result.TransferId, result.Succeeded, result.FailureReason);
+    public async Task ReportFileTransferResult(FileTransferResult result)
+    {
+        var nodeId = Context.GetNodeId();
+        await coordinator.PushResultAsync(nodeId, result.TransferId, result.Succeeded, result.FailureReason, Context.ConnectionAborted);
+    }
 }

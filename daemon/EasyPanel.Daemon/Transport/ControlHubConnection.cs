@@ -174,9 +174,7 @@ internal sealed class ControlHubConnection(
             .Select(instanceId => new InstanceStatusSnapshot(instanceId, InstanceStatus.Running))
             .ToArray();
 
-        return snapshot.Length == 0
-            ? Task.CompletedTask
-            : InvokeIfConnectedAsync("ReportCurrentInstanceStates", cancellationToken, snapshot);
+        return InvokeIfConnectedAsync("ReportCurrentInstanceStates", cancellationToken, snapshot);
     }
 
     private Task SendHeartbeatAsync(CancellationToken cancellationToken)

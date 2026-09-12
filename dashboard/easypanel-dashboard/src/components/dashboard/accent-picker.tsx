@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Check, Palette } from "lucide-react";
 import {
   DropdownMenu,
@@ -13,14 +13,14 @@ import { cn } from "@/lib/utils";
 import { ACCENT_STORAGE_KEY, accents, type AccentId, DEFAULT_ACCENT } from "@/lib/accent";
 
 export function AccentPicker() {
-  const [accent, setAccent] = useState<AccentId>(DEFAULT_ACCENT);
+  const [accent, setAccent] = useState<AccentId>(() => {
+    if (typeof document === "undefined") return DEFAULT_ACCENT;
 
-  useEffect(() => {
-    const stored = window.localStorage.getItem(ACCENT_STORAGE_KEY);
-    if (stored && accents.some((option) => option.id === stored)) {
-      setAccent(stored as AccentId);
-    }
-  }, []);
+    const current = document.documentElement.getAttribute("data-accent");
+    return accents.some((option) => option.id === current)
+      ? (current as AccentId)
+      : DEFAULT_ACCENT;
+  });
 
   function selectAccent(id: AccentId) {
     setAccent(id);

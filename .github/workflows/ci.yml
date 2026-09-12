@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dotnet:
+    name: .NET
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - run: dotnet restore EasyPanel.slnx
+      - run: dotnet test EasyPanel.slnx --configuration Release --no-restore
+      - name: Verify Native AOT daemon publish
+        run: dotnet publish daemon/EasyPanel.Daemon/EasyPanel.Daemon.csproj --configuration Release --runtime win-x64
+      - name: Check vulnerable NuGet dependencies
+        run: dotnet list EasyPanel.slnx package --vulnerable --include-transitive
+
+  dashboard:
+    name: Dashboard
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard/easypanel-dashboard
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/easypanel-dashboard/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm audit --omit=dev --audit-level=high
+
+  containers:
+    name: Containers
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-postgres-password
+      JWT_SIGNING_KEY: ci-only-signing-key-at-least-thirty-two-bytes-long
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker compose config --quiet
+      - run: docker compose build

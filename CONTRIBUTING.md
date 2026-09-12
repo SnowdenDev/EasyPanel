@@ -4,6 +4,37 @@ Thanks for looking at this project. It's open source under AGPL-3.0 specifically
 outside contributors can read, understand, and extend it without archaeology. The
 rules below exist to keep that true as the codebase grows.
 
+## Contribution workflow
+
+1. Open an issue for substantial changes so the design can be agreed before a large amount
+   of work is invested. Security reports belong in [SECURITY.md](SECURITY.md), never in a
+   public issue.
+2. Fork the repository, create a focused branch, and open a pull request against `main`.
+3. Complete the pull request checklist and respond to review feedback. `main` is protected:
+   CI must pass and the code owner reviews and merges accepted work.
+
+By default, maintainers squash-merge pull requests and delete the source branch. Keep each
+pull request small enough to review as one coherent change.
+
+## Local setup and validation
+
+Install the .NET SDK selected by `global.json` and Node.js 22. A local Postgres instance is
+needed to run the backend, but not for the unit test suite.
+
+```bash
+dotnet restore EasyPanel.slnx
+dotnet test EasyPanel.slnx -c Release
+dotnet publish daemon/EasyPanel.Daemon/EasyPanel.Daemon.csproj -c Release -r win-x64
+
+cd dashboard/easypanel-dashboard
+npm ci
+npm run lint
+npm run build
+```
+
+Never commit `.env`, local appsettings overrides, tokens, passwords, certificates, or logs
+containing them. CI repeats the commands above and builds both container images.
+
 ## Code should read like plain language, not like a puzzle
 
 - Use full, explicit names. `request`, not `req`. `configuration`, not `cfg`.

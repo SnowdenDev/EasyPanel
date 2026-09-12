@@ -9,7 +9,19 @@ using Microsoft.Extensions.Hosting;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-builder.Services.Configure<NodeIdentityOptions>(builder.Configuration.GetSection(NodeIdentityOptions.SectionName));
+builder.Services
+    .AddOptions<NodeIdentityOptions>()
+    .Bind(builder.Configuration.GetSection(NodeIdentityOptions.SectionName))
+    .Validate(options => options.NodeId != Guid.Empty, "NodeIdentity:NodeId must be a registered node id.")
+    .Validate(
+        options => options.RawNodeToken.Length == 64 && options.RawNodeToken.All(Uri.IsHexDigit),
+        "NodeIdentity:RawNodeToken must be the 64-character token returned during node registration.")
+    .Validate(
+        options => Uri.TryCreate(options.BackendBaseUrl, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps),
+        "NodeIdentity:BackendBaseUrl must be an absolute HTTP or HTTPS URL.")
+    .Validate(options => options.HeartbeatIntervalSeconds is >= 5 and <= 300, "Heartbeat interval must be between 5 and 300 seconds.")
+    .ValidateOnStart();
 
 builder.Services.AddSingleton<LaunchedProcessRegistry>();
 builder.Services.AddSingleton<SystemStatsCollector>();

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using EasyPanel.Backend.Features.AuditLog.ListAuditEntries;
 using EasyPanel.Backend.Features.Auth.Login;
 using EasyPanel.Backend.Features.FileManager.DownloadFile;
@@ -25,6 +26,8 @@ using EasyPanel.Backend.Infrastructure;
 using EasyPanel.Backend.Infrastructure.Security;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -42,6 +45,17 @@ builder.Services.AddDbContext<AppDbContext>(options => options
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
     ?? throw new InvalidOperationException("Missing required 'Jwt' configuration section.");
+
+if (Encoding.UTF8.GetByteCount(jwtOptions.SigningKey) < 32
+    || jwtOptions.SigningKey.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
+{
+    throw new InvalidOperationException("Jwt:SigningKey must be a non-placeholder secret of at least 32 bytes.");
+}
+
+if (string.IsNullOrWhiteSpace(jwtOptions.Issuer) || string.IsNullOrWhiteSpace(jwtOptions.Audience))
+{
+    throw new InvalidOperationException("Jwt:Issuer and Jwt:Audience are required.");
+}
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -62,11 +76,27 @@ builder.Services
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
             ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(1),
         };
     })
     .AddScheme<NodeTokenAuthenticationOptions, NodeTokenAuthenticationHandler>(NodeTokenAuthenticationDefaults.SchemeName, _ => { });
 
 builder.Services.AddAuthorization();
+builder.Services.AddProblemDetails();
+builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>("postgres");
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("login", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true,
+        }));
+});
 
 // No CORS policy: the browser never talks to this backend directly for anything. The
 // dashboard's own server proxies every REST call (Server Actions/Route Handlers, plain
@@ -124,13 +154,31 @@ using (var startupScope = app.Services.CreateScope())
     var dbContext = startupScope.ServiceProvider.GetRequiredService<AppDbContext>();
     await dbContext.Database.MigrateAsync();
 
+    await dbContext.Nodes
+        .Where(node => node.IsOnline)
+        .ExecuteUpdateAsync(setters => setters.SetProperty(node => node.IsOnline, false));
+
+    await dbContext.Instances
+        .Where(instance => instance.Status == EasyPanel.Contracts.Enums.InstanceStatus.Running
+            || instance.Status == EasyPanel.Contracts.Enums.InstanceStatus.Starting
+            || instance.Status == EasyPanel.Contracts.Enums.InstanceStatus.Stopping)
+        .ExecuteUpdateAsync(setters => setters.SetProperty(
+            instance => instance.Status,
+            EasyPanel.Contracts.Enums.InstanceStatus.Unknown));
+
     var passwordHasher = startupScope.ServiceProvider.GetRequiredService<IPasswordHasher>();
     var logger = startupScope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     await AdminAccountSeeder.SeedIfNeededAsync(dbContext, passwordHasher, logger, CancellationToken.None);
 }
 
+app.UseExceptionHandler();
+app.UseRouting();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapGet("/health/live", () => Results.Ok(new { status = "healthy" })).AllowAnonymous();
+app.MapHealthChecks("/health/ready", new HealthCheckOptions()).AllowAnonymous();
 
 app.MapLoginEndpoint();
 app.MapRegisterNodeEndpoint();

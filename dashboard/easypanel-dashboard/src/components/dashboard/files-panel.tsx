@@ -248,7 +248,10 @@ export function FilesPanel({ instanceId }: { instanceId: string }) {
       return;
     }
     const url = `/api/files/download?instanceId=${instanceId}&path=${encodeURIComponent(downloadPath)}`;
-    window.location.href = url;
+    const downloadLink = document.createElement("a");
+    downloadLink.href = url;
+    downloadLink.download = "";
+    downloadLink.click();
   }
 
   async function handleUpload() {
