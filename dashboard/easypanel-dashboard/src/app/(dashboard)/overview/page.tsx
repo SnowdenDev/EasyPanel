@@ -150,7 +150,7 @@ export default async function OverviewPage() {
                   {attentionInstances.map((instance) => (
                     <Link
                       key={instance.id}
-                      href={`/instances/${instance.id}`}
+                      href={`/instances/${instance.id}/console`}
                       className="flex items-center gap-3 px-5 py-3 border-t border-border hover:bg-muted/60 transition-colors"
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
