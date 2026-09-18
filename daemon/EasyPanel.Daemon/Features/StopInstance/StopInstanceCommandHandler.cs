@@ -29,6 +29,7 @@ internal sealed class StopInstanceCommandHandler(
             return;
         }
 
+        int? exitCode;
         try
         {
             // There's no generic cross-game "graceful shutdown" signal on Windows short of
@@ -40,13 +41,20 @@ internal sealed class StopInstanceCommandHandler(
             {
                 launchedProcess.JobObject.TerminateAll();
             }
+
+            exitCode = launchedProcess.Process.HasExited ? launchedProcess.Process.ExitCode : (int?)null;
         }
         finally
         {
+            // This instance was already removed from the registry above, so
+            // LaunchInstanceCommandHandler's Process.Exited handler will treat the exit as an
+            // expected stop and skip its own cleanup — making this the only place the
+            // deliberate-stop path disposes the Process (its handle and EnableRaisingEvents wait
+            // registration) alongside the Job Object.
             launchedProcess.JobObject.Dispose();
+            launchedProcess.Process.Dispose();
         }
 
-        var exitCode = launchedProcess.Process.HasExited ? launchedProcess.Process.ExitCode : (int?)null;
         await reporter.ReportInstanceStatusChangedAsync(command.InstanceId, InstanceStatus.Stopped, exitCode, cancellationToken);
     }
 
