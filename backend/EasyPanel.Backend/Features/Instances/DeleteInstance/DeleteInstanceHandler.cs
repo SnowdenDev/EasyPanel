@@ -1,3 +1,4 @@
+using System.Text.Json;
 using EasyPanel.Backend.Infrastructure;
 using EasyPanel.Backend.Infrastructure.Entities;
 using EasyPanel.Contracts.Enums;
@@ -40,7 +41,7 @@ public sealed class DeleteInstanceHandler(AppDbContext dbContext)
             InstanceId = null,
             NodeId = nodeId,
             Action = "InstanceDeleted",
-            DetailsJson = $"{{\"displayName\":\"{displayName}\"}}",
+            DetailsJson = JsonSerializer.Serialize(new { displayName }),
             CreatedAtUtc = DateTimeOffset.UtcNow,
         });
 
