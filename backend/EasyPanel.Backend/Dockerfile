@@ -2,7 +2,7 @@
 # AOT live only in the daemon, which never runs in this image) — a normal Linux container
 # works fine here.
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 WORKDIR /src
 
 COPY contracts/EasyPanel.Contracts/EasyPanel.Contracts.csproj contracts/EasyPanel.Contracts/
