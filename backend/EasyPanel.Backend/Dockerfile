@@ -13,7 +13,7 @@ COPY contracts/EasyPanel.Contracts/ contracts/EasyPanel.Contracts/
 COPY backend/EasyPanel.Backend/ backend/EasyPanel.Backend/
 RUN dotnet publish backend/EasyPanel.Backend/EasyPanel.Backend.csproj -c Release -o /app --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS runtime
 WORKDIR /app
 COPY --from=build /app .
 
